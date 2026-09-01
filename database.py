@@ -191,6 +191,41 @@ def init_db():
     ]
     cursor.executemany("INSERT INTO cereal_inventory (cereal_type,stock_kg,buying_price_kes,selling_price_kes,min_stock_kg,max_stock_kg,supplier,last_restocked,status,notes) VALUES (?,?,?,?,?,?,?,?,?,?)", cereal_inv_rows)
 
+    # ── 5c. cereal_daily_sales ─────────────────────────────
+    cursor.execute("""
+    CREATE TABLE cereal_daily_sales (
+        id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+        date                TEXT,
+        total_items_sold    INTEGER,
+        total_kg_sold       INTEGER,
+        total_cost_kes      INTEGER,
+        total_revenue_kes   INTEGER,
+        profit_kes          INTEGER,
+        cash_sales_kes      INTEGER,
+        mpesa_sales_kes     INTEGER,
+        bank_sales_kes      INTEGER,
+        customers_served    INTEGER,
+        sold_by             TEXT,
+        notes               TEXT
+    )""")
+    for i in range(30):
+        items = random.randint(3, 12)
+        kg = random.randint(40, 250)
+        cost = kg * random.randint(60, 120)
+        rev = kg * random.randint(100, 180)
+        cash_pct = random.uniform(0.3, 0.7)
+        mpesa_pct = random.uniform(0.2, 0.5)
+        bank_pct = 1 - cash_pct - mpesa_pct
+        cursor.execute("""
+        INSERT INTO cereal_daily_sales (date,total_items_sold,total_kg_sold,total_cost_kes,total_revenue_kes,profit_kes,cash_sales_kes,mpesa_sales_kes,bank_sales_kes,customers_served,sold_by,notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+            items, kg, cost, rev, rev - cost,
+            int(rev * cash_pct), int(rev * mpesa_pct), int(rev * bank_pct),
+            random.randint(5, 25), 'Grace', ''
+        ))
+
     # ── 6. employees ──────────────────────────────────────
     cursor.execute("""
     CREATE TABLE employees (
@@ -555,6 +590,7 @@ _TABLE_MAP = {
     'orange_harvest_data':    ('orange_harvest',     'id'),
     'cereal_data':            ('cereal_shop',        'id'),
     'cereal_inv_data':        ('cereal_inventory',   'id'),
+    'cereal_daily_data':      ('cereal_daily_sales', 'id'),
     'employee_data':          ('employees',          'id'),
     'payments_data':          ('employee_payments',  'id'),
     'egg_data':               ('egg_production',     'id'),
@@ -608,6 +644,14 @@ _ALIAS_MAP = {
         'Min Stock (kg)': 'min_stock_kg', 'Max Stock (kg)': 'max_stock_kg',
         'Supplier': 'supplier', 'Last Restocked': 'last_restocked',
         'Status': 'status', 'Notes': 'notes',
+    },
+    'cereal_daily_data': {
+        'Date': 'date', 'Items Sold': 'total_items_sold',
+        'Kg Sold': 'total_kg_sold', 'Total Cost (KES)': 'total_cost_kes',
+        'Total Revenue (KES)': 'total_revenue_kes', 'Profit (KES)': 'profit_kes',
+        'Cash Sales (KES)': 'cash_sales_kes', 'M-Pesa Sales (KES)': 'mpesa_sales_kes',
+        'Bank Sales (KES)': 'bank_sales_kes', 'Customers': 'customers_served',
+        'Sold By': 'sold_by', 'Notes': 'notes',
     },
     'employee_data': {
         'Employee Name': 'employee_name', 'Role': 'role',
@@ -896,6 +940,12 @@ COLUMN_ORDER = {
         'Selling Price (KES/kg)', 'Min Stock (kg)', 'Max Stock (kg)',
         'Supplier', 'Last Restocked', 'Status', 'Notes'
     ],
+    'cereal_daily_data': [
+        'Date', 'Items Sold', 'Kg Sold', 'Total Cost (KES)',
+        'Total Revenue (KES)', 'Profit (KES)', 'Cash Sales (KES)',
+        'M-Pesa Sales (KES)', 'Bank Sales (KES)', 'Customers',
+        'Sold By', 'Notes'
+    ],
     'employee_data': [
         'Employee Name', 'Role', 'Work Location', 'Start Date',
         'Salary (KES/month)', 'Payment Method', 'Phone', 'Status', 'Notes'
@@ -958,6 +1008,7 @@ SHEET_NAMES = {
     'orange_harvest_data':  'Orange Harvest Log',
     'cereal_data':          'Cereal Shop Sales',
     'cereal_inv_data':      'Cereal Inventory',
+    'cereal_daily_data':    'Cereal Daily Sales',
     'egg_data':             'Egg Production',
     'egg_sales_data':       'Egg Sales',
     'employee_data':        'Employees',
@@ -992,6 +1043,9 @@ def export_excel(session_key, df):
     from io import BytesIO
     from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
     ordered = order_columns(session_key, df)
+    # Sort by Date descending if Date column exists
+    if 'Date' in ordered.columns:
+        ordered = ordered.sort_values('Date', ascending=False).reset_index(drop=True)
     sheet_name = SHEET_NAMES.get(session_key, session_key)[:31]
     
     buffer = BytesIO()

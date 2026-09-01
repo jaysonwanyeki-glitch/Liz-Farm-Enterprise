@@ -39,7 +39,7 @@ st.markdown("""
 <style>
 /* ─── SOFT GRADIENT BACKGROUND ─── */
 .stApp {
-    background: linear-gradient(160deg, #e8f5e9 0%, #f1f8e9 30%, #e0f2f1 60%, #e8f5e9 100%);
+    background: linear-gradient(160deg, #fef9ef 0%, #fdf5e6 30%, #fff8e1 60%, #fef9ef 100%);
     background-attachment: fixed;
 }
 .stApp::before {
@@ -49,9 +49,9 @@ st.markdown("""
     pointer-events: none;
     z-index: 0;
     background:
-        radial-gradient(ellipse 800px 600px at 20% 20%, rgba(200,230,201,0.4) 0%, transparent 70%),
-        radial-gradient(ellipse 600px 500px at 80% 80%, rgba(178,223,219,0.3) 0%, transparent 70%),
-        radial-gradient(ellipse 400px 400px at 50% 50%, rgba(225,245,226,0.2) 0%, transparent 70%);
+        radial-gradient(ellipse 800px 600px at 20% 20%, rgba(255,243,224,0.5) 0%, transparent 70%),
+        radial-gradient(ellipse 600px 500px at 80% 80%, rgba(255,224,178,0.4) 0%, transparent 70%),
+        radial-gradient(ellipse 400px 400px at 50% 50%, rgba(255,236,179,0.3) 0%, transparent 70%);
 }
 
 /* Floating particles */
@@ -124,37 +124,37 @@ st.markdown("""
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.5); border-radius: 10px; }
-::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #81C784, #4CAF50, #388E3C); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #66BB6A, #43A047, #2E7D32); }
+::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #FFB74D, #FF9800, #E65100); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #FF9800, #F57C00, #E65100); }
 
 /* ─── BUTTONS ─── */
 .stButton > button {
-    background: linear-gradient(135deg, #43A047 0%, #66BB6A 50%, #81C784 100%);
+    background: linear-gradient(135deg, #E65100 0%, #F57C00 50%, #FFB74D 100%);
     color: white;
     font-weight: 600;
     border-radius: 50px;
     padding: 0.65rem 2rem;
     border: none;
     transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
-    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.25);
+    box-shadow: 0 4px 15px rgba(230, 81, 0, 0.2);
     letter-spacing: 0.3px;
 }
 .stButton > button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.35);
-    background: linear-gradient(135deg, #388E3C 0%, #4CAF50 50%, #66BB6A 100%);
+    box-shadow: 0 8px 25px rgba(230, 81, 0, 0.3);
+    background: linear-gradient(135deg, #BF360C 0%, #E65100 50%, #F57C00 100%);
 }
 
 /* ─── SECTION HEADERS ─── */
 .section-header {
-    background: linear-gradient(135deg, #2E7D32 0%, #43A047 50%, #66BB6A 100%);
+    background: linear-gradient(135deg, #E65100 0%, #F57C00 50%, #FFB74D 100%);
     padding: 20px 30px;
     border-radius: 20px;
     color: white;
     margin: 35px 0 25px 0;
     font-size: 1.3em;
     font-weight: 600;
-    box-shadow: 0 4px 20px rgba(46, 125, 50, 0.2);
+    box-shadow: 0 4px 20px rgba(230, 81, 0, 0.15);
     position: relative;
     overflow: hidden;
     animation: slideIn 0.5s ease;
@@ -201,9 +201,9 @@ st.markdown("""
 .success-box {
     background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
     padding: 20px 24px; border-radius: 16px;
-    border-left: 5px solid #66BB6A;
+    border-left: 5px solid #FFB74D;
     margin: 12px 0;
-    box-shadow: 0 2px 12px rgba(102, 187, 106, 0.1);
+    box-shadow: 0 2px 12px rgba(255, 183, 77, 0.1);
     transition: all 0.3s ease;
     color: #2E7D32;
 }
@@ -227,7 +227,7 @@ st.markdown("""
     box-shadow: 0 2px 16px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.5) inset;
     margin: 12px 0;
     transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
-    border-top: 4px solid #66BB6A;
+    border-top: 4px solid #FFB74D;
     position: relative;
 }
 .dashboard-card:hover {
@@ -237,13 +237,13 @@ st.markdown("""
 
 /* ─── FARM HEADER ─── */
 .farm-header {
-    background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 30%, #388E3C 60%, #43A047 100%);
+    background: linear-gradient(135deg, #BF360C 0%, #E65100 30%, #F57C00 60%, #FF9800 100%);
     padding: 50px 40px 55px;
     border-radius: 24px;
     color: white;
     text-align: center;
     margin-bottom: 35px;
-    box-shadow: 0 8px 40px rgba(27, 94, 32, 0.25);
+    box-shadow: 0 8px 40px rgba(191, 54, 12, 0.2);
     position: relative;
     overflow: hidden;
 }
@@ -258,7 +258,7 @@ st.markdown("""
     position: absolute;
     bottom: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #FFD700, #66BB6A, #FFD700);
+    background: linear-gradient(90deg, #FFD700, #FF9800, #FFD700);
 }
 .farm-header-glow {
     position: absolute;
@@ -315,7 +315,7 @@ st.markdown("""
     transform: rotate(0deg) scale(1.1);
 }
 
-.glow-green { border-top: 4px solid #66BB6A; }
+.glow-green { border-top: 4px solid #FFB74D; }
 .glow-orange { border-top: 4px solid #FFB74D; }
 .glow-blue { border-top: 4px solid #64B5F6; }
 .glow-red { border-top: 4px solid #EF5350; }
@@ -325,7 +325,7 @@ st.markdown("""
 /* ─── BIG NUMBERS ─── */
 .big-number {
     font-size: 2.6em; font-weight: 800;
-    background: linear-gradient(135deg, #2E7D32, #66BB6A);
+    background: linear-gradient(135deg, #E65100, #FFB74D);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     line-height: 1.15;
 }
@@ -359,7 +359,7 @@ st.markdown("""
 .farm-footer {
     text-align: center;
     padding: 40px;
-    background: linear-gradient(135deg, #2E7D32 0%, #43A047 50%, #66BB6A 100%);
+    background: linear-gradient(135deg, #E65100 0%, #F57C00 50%, #FFB74D 100%);
     border-radius: 24px;
     color: white;
     margin-top: 50px;
@@ -393,19 +393,19 @@ st.markdown("""
     color: #666;
 }
 .stTabs [data-baseweb="tab"]:hover {
-    background: rgba(76, 175, 80, 0.08);
+    background: rgba(255, 152, 0, 0.08);
     color: #333;
 }
 .stTabs [aria-selected="true"] {
     background: white !important;
-    color: #2E7D32 !important;
+    color: #E65100 !important;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     font-weight: 600;
 }
 
 /* ─── PROGRESS BARS ─── */
 .stProgress > div > div {
-    background: linear-gradient(90deg, #66BB6A, #FFD54F);
+    background: linear-gradient(90deg, #FF9800, #FFD54F);
     border-radius: 8px;
 }
 
@@ -416,7 +416,7 @@ st.markdown("""
     padding: 22px;
     border-radius: 18px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-    border-left: 4px solid #66BB6A;
+    border-left: 4px solid #FFB74D;
     margin: 10px 0;
     transition: all 0.3s ease;
 }
@@ -427,7 +427,7 @@ st.markdown("""
 
 /* ─── SIDEBAR ─── */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1B5E20 0%, #2E7D32 30%, #388E3C 60%, #43A047 100%);
+    background: linear-gradient(180deg, #BF360C 0%, #E65100 30%, #F57C00 60%, #FF9800 100%);
 }
 [data-testid="stSidebar"] .stRadio > div { gap: 4px; }
 [data-testid="stSidebar"] [data-baseweb="radio"] {
@@ -441,8 +441,8 @@ st.markdown("""
     background: rgba(255,255,255,0.12);
 }
 [data-testid="stSidebar"] [aria-checked="true"] {
-    background: rgba(255,215,0,0.15) !important;
-    border: 1px solid rgba(255,215,0,0.2) !important;
+    background: rgba(255,255,255,0.2) !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
 }
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span {
@@ -454,7 +454,7 @@ st.markdown("""
     position: relative;
     height: 110px;
     margin: 8px 0 16px;
-    background: linear-gradient(180deg, rgba(135,206,235,0.2) 0%, rgba(76,175,80,0.15) 60%, rgba(46,125,50,0.25) 100%);
+    background: linear-gradient(180deg, rgba(135,206,235,0.2) 0%, rgba(255,152,0,0.15) 60%, rgba(230,81,0,0.25) 100%);
     border-radius: 14px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.08);
@@ -521,7 +521,7 @@ st.markdown("""
     background: rgba(255,255,255,0.92) !important;
     backdrop-filter: blur(12px) !important;
     border-radius: 12px !important;
-    border-left: 4px solid #66BB6A !important;
+    border-left: 4px solid #FFB74D !important;
     box-shadow: 0 4px 16px rgba(0,0,0,0.06) !important;
 }
 
@@ -953,7 +953,8 @@ elif page == "🛒 Cereal Shop":
         profit = cereal['Profit/Loss (KES)'].sum()
         st.markdown(f"""<div class="metric-card glow-green" data-emoji="📈"><div style="font-size:2em;">📈</div><div class="big-number">{format_kes(profit)}</div><div class="sub-label">Net Profit</div></div>""", unsafe_allow_html=True)
     cereal_inv = st.session_state.cereal_inv_data
-    tab1, tab2, tab3 = st.tabs(["📊 Analytics", "📦 Inventory", "✏️ Sales Editor"])
+    cereal_daily = st.session_state.cereal_daily_data
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Analytics", "📈 Daily Sales", "📦 Inventory", "✏️ Sales Editor"])
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -970,6 +971,45 @@ elif page == "🛒 Cereal Shop":
         st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
+        st.markdown('##### 📈 Daily Sales Summary')
+        total_rev = cereal_daily['Total Revenue (KES)'].sum()
+        total_profit = cereal_daily['Profit (KES)'].sum()
+        total_kg = cereal_daily['Kg Sold'].sum()
+        total_cust = cereal_daily['Customers'].sum()
+        dc1, dc2, dc3, dc4 = st.columns(4)
+        with dc1:
+            st.markdown(f"""<div class="metric-card glow-gold" data-emoji="💰"><div style="font-size:2em;">💰</div><div class="big-number-gold">{format_kes(total_rev)}</div><div class="sub-label">Total Revenue</div></div>""", unsafe_allow_html=True)
+        with dc2:
+            st.markdown(f"""<div class="metric-card glow-green" data-emoji="📈"><div style="font-size:2em;">📈</div><div class="big-number">{format_kes(total_profit)}</div><div class="sub-label">Total Profit</div></div>""", unsafe_allow_html=True)
+        with dc3:
+            st.markdown(f"""<div class="metric-card glow-blue" data-emoji="⚖️"><div style="font-size:2em;">⚖️</div><div class="big-number-blue">{total_kg:,} kg</div><div class="sub-label">Total Kg Sold</div></div>""", unsafe_allow_html=True)
+        with dc4:
+            st.markdown(f"""<div class="metric-card glow-orange" data-emoji="👥"><div style="font-size:2em;">👥</div><div class="big-number-orange">{total_cust:,}</div><div class="sub-label">Customers Served</div></div>""", unsafe_allow_html=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.line(cereal_daily, x='Date', y='Total Revenue (KES)', markers=True, title='Daily Revenue Trend')
+            fig.update_traces(line_color='#FFB74D', line_width=3)
+            fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        with col2:
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=cereal_daily['Date'], y=cereal_daily['Profit (KES)'], mode='lines+markers', name='Profit', line=dict(color='#66BB6A', width=3), fill='tozeroy', fillcolor='rgba(102,187,106,0.1)'))
+            fig.update_layout(title='Daily Profit Trend', height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(createMiniDonut([cereal_daily['Cash Sales (KES)'].sum(), cereal_daily['M-Pesa Sales (KES)'].sum(), cereal_daily['Bank Sales (KES)'].sum()], ['Cash', 'M-Pesa', 'Bank'], ['#4CAF50', '#2196F3', '#FF9800'], 'Sales by Payment Method'), use_container_width=True)
+        with col2:
+            fig = px.bar(cereal_daily.head(14), x='Date', y='Kg Sold', color='Sold By', color_discrete_sequence=['#66BB6A', '#FFB74D'], title='Daily Kg Sold (Last 14 days)')
+            fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig, use_container_width=True)
+        st.markdown('##### ✏️ Edit Daily Sales')
+        edited_daily = ordered_editor('cereal_daily_data', cereal_daily, use_container_width=True, num_rows='dynamic')
+        if not edited_daily.equals(cereal_daily):
+            save('cereal_daily_data', edited_daily)
+            st.toast('✅ Daily sales saved!', icon='💾')
+
+    with tab3:
         st.markdown('##### 📦 Cereal Shop Inventory')
         total_stock = cereal_inv['Stock (kg)'].sum()
         total_value = (cereal_inv['Stock (kg)'] * cereal_inv['Buying Price (KES/kg)']).sum()
@@ -1006,7 +1046,7 @@ elif page == "🛒 Cereal Shop":
             save('cereal_inv_data', edited_inv)
             st.toast("✅ Inventory saved!", icon="💾")
 
-    with tab3:
+    with tab4:
         st.markdown("##### ✏️ Edit Sales Transactions")
         edited = ordered_editor('cereal_data', cereal, use_container_width=True, num_rows="dynamic")
         if not edited.equals(cereal):
@@ -1281,7 +1321,7 @@ elif page == "📊 Reports":
     col1, col2, col3 = st.columns(3)
     export_keys = [
         'inventory_data', 'orchard_data', 'orange_harvest_data',
-        'cereal_data', 'cereal_inv_data',
+        'cereal_data', 'cereal_inv_data', 'cereal_daily_data',
         'egg_data', 'egg_sales_data',
         'employee_data', 'payments_data',
         'pet_feed_data', 'cat_menu_data',
