@@ -26,12 +26,24 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check if already initialized
+    # Check if already initialized — require ALL tables, not just farm_overview
+    REQUIRED_TABLES = {
+        "farm_overview", "inventory", "orchard", "orange_harvest",
+        "cereal_shop", "cereal_inventory", "cereal_daily_sales",
+        "employees", "employee_payments", "egg_production", "egg_sales",
+        "fruit_production", "chicks", "pet_feeding", "mortality",
+        "cat_menu", "finance", "feed_inventory", "tasks", "weather",
+    }
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     existing = {row[0] for row in cursor.fetchall()}
-    if "farm_overview" in existing:
+    if REQUIRED_TABLES.issubset(existing):
         conn.close()
         return
+    # Some tables missing — drop everything and recreate fresh
+    for tbl in list(existing):
+        cursor.execute(f"DROP TABLE IF EXISTS [{tbl}]")
+    cursor.execute("DROP TABLE IF EXISTS sqlite_sequence")
+    conn.commit()
 
     # ── 1. farm_overview ──────────────────────────────────
     cursor.execute("""
