@@ -830,8 +830,13 @@ def load_all():
         try:
             data = load_table(key)
             if isinstance(data, pd.DataFrame):
-                # Fill NaN to prevent display issues
-                st.session_state[key] = data.fillna('')
+                # Fill NaN: 0 for numeric columns, empty string for text
+                for col in data.columns:
+                    if pd.api.types.is_numeric_dtype(data[col]):
+                        data[col] = data[col].fillna(0)
+                    else:
+                        data[col] = data[col].fillna('')
+                st.session_state[key] = data
             else:
                 st.session_state[key] = data
         except Exception:
