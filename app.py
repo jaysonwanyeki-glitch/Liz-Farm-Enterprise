@@ -989,7 +989,7 @@ elif page == "🍊 Orange Orchard":
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         with col2:
-            fig = px.scatter(orchard, x='Age (years)', y='Harvest (kg)', size='Harvest (kg)', color='Quality', hover_data=['Tree ID'], title="Age vs Harvest")
+            fig = px.scatter(orchard, x='Age (years)', y='Harvest (kg)', size='Harvest (kg)', color='Quality', hover_data={'Tree ID': True, 'Age (years)': False, 'Harvest (kg)': False}, title="Age vs Harvest")
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         st.markdown("##### ✏️ Edit Orchard Data")
