@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
@@ -22,15 +23,53 @@ st.set_page_config(
 # ============================================
 # DATABASE INIT
 # ============================================
-db.init_db()
+try:
+    db.init_db()
+except Exception as e:
+    st.error(f"⚠️ Database init failed: {e}")
+    st.stop()
+
 if '_db_loaded' not in st.session_state:
-    db.load_all()
+    try:
+        db.load_all()
+    except Exception as e:
+        st.error(f"⚠️ Failed to load data: {e}")
+        st.stop()
     st.session_state._db_loaded = True
 
 def save(session_key, edited_df):
     """Persist an edited DataFrame back to SQLite and update session_state."""
-    st.session_state[session_key] = edited_df
-    db.save_table(session_key, edited_df)
+    # Clean NaN/None before saving
+    cleaned = edited_df.copy()
+    for col in cleaned.columns:
+        if cleaned[col].dtype == float:
+            cleaned[col] = cleaned[col].fillna(0)
+    st.session_state[session_key] = cleaned
+    db.save_table(session_key, cleaned)
+
+def safe_equals(edited_df, original_df):
+    """Compare DataFrames robustly, ignoring NaN and dtype differences."""
+    if edited_df is None or original_df is None:
+        return edited_df is None and original_df is None
+    try:
+        if edited_df.shape != original_df.shape:
+            return False
+        # Normalize dtypes for comparison
+        for col in edited_df.columns:
+            if col not in original_df.columns:
+                return False
+            if not edited_df[col].equals(original_df[col]):
+                # Try numeric comparison
+                a = pd.to_numeric(edited_df[col], errors='coerce').fillna(0)
+                b = pd.to_numeric(original_df[col], errors='coerce').fillna(0)
+                if not a.equals(b):
+                    return False
+        for col in original_df.columns:
+            if col not in edited_df.columns:
+                return False
+        return True
+    except Exception:
+        return False
 
 # ============================================
 # CREATIVE FARM CSS — ANIMATED BACKGROUND
@@ -552,7 +591,12 @@ st.markdown("""
 # ============================================
 
 def format_kes(amount):
-    return f"KES {amount:,.0f}"
+    try:
+        if pd.isna(amount) or amount is None:
+            return "KES 0"
+        return f"KES {amount:,.0f}"
+    except (TypeError, ValueError):
+        return "KES 0"
 
 def ordered_editor(session_key, df, **kwargs):
     """Display a data editor with canonical column ordering."""
@@ -729,7 +773,7 @@ if page == "🏠 Dashboard":
         st.plotly_chart(createMiniDonut(
             [total_egg_revenue, total_orange_revenue, total_cereal_revenue],
             ['Eggs', 'Oranges', 'Cereals'], ['#4CAF50', '#FF9800', '#2196F3'], "Revenue Mix"
-        ), use_container_width=True)
+        ), width="stretch")
     with col2:
         st.markdown(f"""
         <div class="dashboard-card glow-orange">
@@ -743,7 +787,7 @@ if page == "🏠 Dashboard":
                      color=st.session_state.orange_harvest_data['Buyer'],
                      color_discrete_sequence=['#FF9800', '#FFB74D'], title="Orange Sales Trend")
         fig.update_layout(height=250, margin=dict(t=40, b=30), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col3:
         st.markdown(f"""
         <div class="dashboard-card glow-blue">
@@ -756,7 +800,7 @@ if page == "🏠 Dashboard":
         fig = px.pie(cereal_by_type, values='Profit/Loss (KES)', names='Cereal Type',
                      color_discrete_sequence=px.colors.qualitative.Set2, title="Profit by Cereal Type")
         fig.update_layout(height=250, margin=dict(t=40, b=10), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Expenses
     st.markdown('<div class="section-header">💸 Expense Overview</div>', unsafe_allow_html=True)
@@ -767,7 +811,7 @@ if page == "🏠 Dashboard":
                      color_discrete_sequence=px.colors.qualitative.Pastel, text_auto='.2s')
         fig.update_layout(height=350, margin=dict(t=20, b=30), showlegend=False,
                           paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         feed_cost = st.session_state.feed_data['Quantity (kg)'].sum() * st.session_state.feed_data['Cost per kg (KES)'].mean()
         profit_pct = (net_profit / total_income * 100) if total_income > 0 else 0
@@ -791,7 +835,7 @@ if page == "🏠 Dashboard":
         fig = px.bar(inv, x='Category', y=['Male', 'Female'], barmode='group',
                      color_discrete_sequence=['#42A5F5', '#EF5350'], title="Livestock Distribution")
         fig.update_layout(height=300, margin=dict(t=40, b=30), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         weather = st.session_state.weather_data
         fig = go.Figure()
@@ -807,7 +851,7 @@ if page == "🏠 Dashboard":
                           yaxis2=dict(title='Humidity (%)', side='right', overlaying='y'),
                           title="Weather Trends (7 days)",
                           paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Tasks
     st.markdown('<div class="section-header">📋 Today\'s Tasks</div>', unsafe_allow_html=True)
@@ -862,15 +906,15 @@ elif page == "🐔 Livestock":
     with col1:
         fig = px.pie(inv, values='Total', names='Category', color_discrete_sequence=px.colors.qualitative.Set2, hole=0.4)
         fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         for _, row in inv.iterrows():
             st.markdown(f"""<div class="employee-card"><strong>{row['Category']}</strong><br>♂️ {row['Male']} | ♀️ {row['Female']} | Total: <strong>{row['Total']}</strong><br><small>📍 {row['Location']} | {row['Health Status']}</small></div>""", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("##### ✏️ Edit Livestock Inventory")
     st.markdown("""<div class="info-box">💡 <strong>Tip:</strong> Edit Male/Female counts below. The <strong>Total</strong> column auto-calculates as Male + Female.</div>""", unsafe_allow_html=True)
-    edited = ordered_editor('inventory_data', inv, use_container_width=True, num_rows="dynamic")
-    if not edited.equals(inv):
+    edited = ordered_editor('inventory_data', inv, width="stretch", num_rows="dynamic")
+    if not safe_equals(edited, inv):
         # Auto-calculate Total = Male + Female
         edited['Total'] = edited['Male'] + edited['Female']
         save('inventory_data', edited)
@@ -908,23 +952,23 @@ elif page == "🍊 Orange Orchard":
         with col1:
             fig = px.bar(orchard, x='Tree ID', y='Harvest (kg)', color='Quality', color_discrete_map={'Grade A': '#FF9800', 'Grade B': '#FFB74D'}, title="Harvest per Tree")
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             _orch = orchard.copy()
-            _orch['Harvest (kg)'] = pd.to_numeric(_orch['Harvest (kg)'], errors='coerce').fillna(0)
-            _orch['Age (years)'] = pd.to_numeric(_orch['Age (years)'], errors='coerce').fillna(0)
-            fig = px.scatter(_orch, x='Age (years)', y='Harvest (kg)', size='Harvest (kg)', color='Quality', hover_data={'Tree ID': True, 'Age (years)': False, 'Harvest (kg)': False}, title="Age vs Harvest")
+            _orch['Harvest (kg)'] = pd.to_numeric(_orch['Harvest (kg)'], errors='coerce').fillna(0).astype(float)
+            _orch['Age (years)'] = pd.to_numeric(_orch['Age (years)'], errors='coerce').fillna(0).astype(float)
+            fig = px.scatter(_orch, x='Age (years)', y='Harvest (kg)', size=_orch['Harvest (kg)'].tolist(), color='Quality', hover_data={'Tree ID': True, 'Age (years)': False, 'Harvest (kg)': False}, title="Age vs Harvest")
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         st.markdown("##### ✏️ Edit Orchard Data")
-        edited = ordered_editor('orchard_data', orchard, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(orchard):
+        edited = ordered_editor('orchard_data', orchard, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, orchard):
             save('orchard_data', edited)
             st.toast("✅ Orchard data saved!", icon="💾")
     with tab2:
         st.markdown("##### 📦 Harvest History")
-        edited = ordered_editor('orange_harvest_data', harvest, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(harvest):
+        edited = ordered_editor('orange_harvest_data', harvest, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, harvest):
             save('orange_harvest_data', edited)
             st.toast("✅ Harvest log saved!", icon="💾")
     with tab3:
@@ -933,9 +977,9 @@ elif page == "🍊 Orange Orchard":
             fig = px.line(harvest, x='Date', y='Total Revenue (KES)', markers=True, title="Revenue Trend")
             fig.update_traces(line_color='#FF9800', line_width=3)
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
-            st.plotly_chart(createMiniDonut([int(grade_a), int(grade_b)], [f'Grade A ({int(grade_a)} kg)', f'Grade B ({int(grade_b)} kg)'], ['#FF9800', '#FFE0B2'], "Quality Distribution"), use_container_width=True)
+            st.plotly_chart(createMiniDonut([int(grade_a), int(grade_b)], [f'Grade A ({int(grade_a)} kg)', f'Grade B ({int(grade_b)} kg)'], ['#FF9800', '#FFE0B2'], "Quality Distribution"), width="stretch")
         st.markdown(f"**Payment Status:** {len(harvest[harvest['Payment Received'] == '✅ Yes'])}/{len(harvest)} received")
 
 
@@ -964,14 +1008,14 @@ elif page == "🛒 Cereal Shop":
             cereal_profit = cereal.groupby('Cereal Type')['Profit/Loss (KES)'].sum().reset_index()
             fig = px.bar(cereal_profit, x='Cereal Type', y='Profit/Loss (KES)', color='Cereal Type', color_discrete_sequence=px.colors.qualitative.Set2, title="Profit by Cereal Type")
             fig.update_layout(height=350, showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             retail_rev = cereal[cereal['Customer Type'] == 'Retail']['Total Revenue (KES)'].sum()
             wholesale_rev = cereal[cereal['Customer Type'] == 'Wholesale']['Total Revenue (KES)'].sum()
-            st.plotly_chart(createMiniDonut([retail_rev, wholesale_rev], ['Retail', 'Wholesale'], ['#2196F3', '#64B5F6'], "Revenue by Customer Type"), use_container_width=True)
+            st.plotly_chart(createMiniDonut([retail_rev, wholesale_rev], ['Retail', 'Wholesale'], ['#2196F3', '#64B5F6'], "Revenue by Customer Type"), width="stretch")
         fig = px.line(cereal, x='Date', y='Total Revenue (KES)', color='Cereal Type', title="Sales Trend by Cereal")
         fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with tab2:
         st.markdown('##### 📈 Daily Sales Summary')
@@ -993,22 +1037,22 @@ elif page == "🛒 Cereal Shop":
             fig = px.line(cereal_daily, x='Date', y='Total Revenue (KES)', markers=True, title='Daily Revenue Trend')
             fig.update_traces(line_color='#FFB74D', line_width=3)
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=cereal_daily['Date'], y=cereal_daily['Profit (KES)'], mode='lines+markers', name='Profit', line=dict(color='#66BB6A', width=3), fill='tozeroy', fillcolor='rgba(102,187,106,0.1)'))
             fig.update_layout(title='Daily Profit Trend', height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         col1, col2 = st.columns(2)
         with col1:
-            st.plotly_chart(createMiniDonut([cereal_daily['Cash Sales (KES)'].sum(), cereal_daily['M-Pesa Sales (KES)'].sum(), cereal_daily['Bank Sales (KES)'].sum()], ['Cash', 'M-Pesa', 'Bank'], ['#4CAF50', '#2196F3', '#FF9800'], 'Sales by Payment Method'), use_container_width=True)
+            st.plotly_chart(createMiniDonut([cereal_daily['Cash Sales (KES)'].sum(), cereal_daily['M-Pesa Sales (KES)'].sum(), cereal_daily['Bank Sales (KES)'].sum()], ['Cash', 'M-Pesa', 'Bank'], ['#4CAF50', '#2196F3', '#FF9800'], 'Sales by Payment Method'), width="stretch")
         with col2:
             fig = px.bar(cereal_daily.head(14), x='Date', y='Kg Sold', color='Sold By', color_discrete_sequence=['#66BB6A', '#FFB74D'], title='Daily Kg Sold (Last 14 days)')
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         st.markdown('##### ✏️ Edit Daily Sales')
-        edited_daily = ordered_editor('cereal_daily_data', cereal_daily, use_container_width=True, num_rows='dynamic')
-        if not edited_daily.equals(cereal_daily):
+        edited_daily = ordered_editor('cereal_daily_data', cereal_daily, width="stretch", num_rows='dynamic')
+        if not safe_equals(edited_daily, cereal_daily):
             save('cereal_daily_data', edited_daily)
             st.toast('✅ Daily sales saved!', icon='💾')
 
@@ -1039,20 +1083,20 @@ elif page == "🛒 Cereal Shop":
             fig.add_trace(go.Scatter(x=cereal_inv['Cereal Type'].tolist(), y=cereal_inv['Max Stock (kg)'].tolist(),
                 mode='markers+lines', marker=dict(color='green', size=10, symbol='diamond'), name='Max Level'))
             fig.update_layout(title="Stock Levels vs Min/Max", height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             st.plotly_chart(createMiniDonut(cereal_inv['Stock (kg)'].tolist(), cereal_inv['Cereal Type'].tolist(),
-                px.colors.qualitative.Set2[:len(cereal_inv)], "Stock Distribution"), use_container_width=True)
+                px.colors.qualitative.Set2[:len(cereal_inv)], "Stock Distribution"), width="stretch")
         st.markdown("##### ✏️ Edit Inventory")
-        edited_inv = ordered_editor('cereal_inv_data', cereal_inv, use_container_width=True, num_rows="dynamic")
-        if not edited_inv.equals(cereal_inv):
+        edited_inv = ordered_editor('cereal_inv_data', cereal_inv, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited_inv, cereal_inv):
             save('cereal_inv_data', edited_inv)
             st.toast("✅ Inventory saved!", icon="💾")
 
     with tab4:
         st.markdown("##### ✏️ Edit Sales Transactions")
-        edited = ordered_editor('cereal_data', cereal, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(cereal):
+        edited = ordered_editor('cereal_data', cereal, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, cereal):
             save('cereal_data', edited)
             st.toast("✅ Cereal sales saved!", icon="💾")
 
@@ -1083,24 +1127,24 @@ elif page == "🥚 Eggs":
         with col1:
             fig = px.bar(eggs.head(14), x='Date', y='Total Eggs', color='Quality', color_discrete_map={'Grade A': '#4CAF50', 'Grade B': '#FF9800'}, title="Daily Egg Production")
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=eggs['Date'], y=eggs['Sellable'], mode='lines+markers', name='Sellable', line=dict(color='#4CAF50', width=2)))
             fig.add_trace(go.Scatter(x=eggs['Date'], y=eggs['Cracked'], mode='lines+markers', name='Cracked', line=dict(color='#f44336', width=2)))
             fig.update_layout(title="Sellable vs Cracked Trend", height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         quality_counts = eggs['Quality'].value_counts().reset_index()
         quality_counts.columns = ['Quality', 'Count']
-        st.plotly_chart(createMiniDonut(quality_counts['Count'].tolist(), quality_counts['Quality'].tolist(), ['#4CAF50', '#FF9800'], "Quality Distribution"), use_container_width=True)
+        st.plotly_chart(createMiniDonut(quality_counts['Count'].tolist(), quality_counts['Quality'].tolist(), ['#4CAF50', '#FF9800'], "Quality Distribution"), width="stretch")
     with tab2:
-        edited = ordered_editor('egg_sales_data', sales, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(sales):
+        edited = ordered_editor('egg_sales_data', sales, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, sales):
             save('egg_sales_data', edited)
             st.toast("✅ Egg sales saved!", icon="💾")
     with tab3:
-        edited = ordered_editor('egg_data', eggs, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(eggs):
+        edited = ordered_editor('egg_data', eggs, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, eggs):
             save('egg_data', edited)
             st.toast("✅ Egg production saved!", icon="💾")
 
@@ -1119,14 +1163,14 @@ elif page == "👤 Employees":
     st.markdown("---")
     tab1, tab2 = st.tabs(["💰 Payment History", "📊 Analytics"])
     with tab1:
-        edited = ordered_editor('payments_data', payments, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(payments):
+        edited = ordered_editor('payments_data', payments, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, payments):
             save('payments_data', edited)
             st.toast("✅ Payment data saved!", icon="💾")
     with tab2:
         fig = px.bar(payments, x='Month', y='Amount (KES)', color='Employee', barmode='group', color_discrete_sequence=['#4CAF50', '#2196F3'], title="Monthly Salary Payments")
         fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         st.metric("💰 Total Salary Paid (6 months)", format_kes(payments['Amount (KES)'].sum()))
 
 
@@ -1146,35 +1190,35 @@ elif page == "🐾 Pets & Feeding":
             pet_summary = pets.groupby('Pet Type')['Total Cost (KES)'].sum().reset_index()
             fig = px.pie(pet_summary, values='Total Cost (KES)', names='Pet Type', color_discrete_sequence=['#FF9800', '#4CAF50'], hole=0.4, title="Cost by Pet Type")
             fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         with col2:
             fig = px.bar(pets, x='Food Type', y='Total Cost (KES)', color='Pet Type', title="Cost by Food Type")
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-            st.plotly_chart(fig, use_container_width=True)
-        edited = ordered_editor('pet_feed_data', pets, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(pets):
+            st.plotly_chart(fig, width="stretch")
+        edited = ordered_editor('pet_feed_data', pets, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, pets):
             save('pet_feed_data', edited)
             st.toast("✅ Pet feeding data saved!", icon="💾")
     with tab2:
         st.markdown("##### 🐱 Cat Meal Menu")
         st.markdown("""<div class="info-box">🐱 <strong>Cat Feeding Program</strong> - 7 cats fed daily with balanced nutrition<br>🕐 Schedule: Breakfast (6AM), Lunch (12PM), Dinner (6PM), Treat (9PM)</div>""", unsafe_allow_html=True)
-        edited = ordered_editor('cat_menu_data', cat_menu, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(cat_menu):
+        edited = ordered_editor('cat_menu_data', cat_menu, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, cat_menu):
             save('cat_menu_data', edited)
             st.toast("✅ Cat menu saved!", icon="💾")
     with tab3:
         st.markdown("##### 💀 Mortality Tracker")
         st.markdown("""<div class="success-box">🎉 <strong>Great news!</strong> No livestock losses recorded. All animals are healthy.</div>""", unsafe_allow_html=True)
         mort = st.session_state.mortality_data
-        edited = ordered_editor('mortality_data', mort, use_container_width=True, num_rows="dynamic")
-        if not edited.equals(mort):
+        edited = ordered_editor('mortality_data', mort, width="stretch", num_rows="dynamic")
+        if not safe_equals(edited, mort):
             save('mortality_data', edited)
             st.toast("✅ Mortality data saved!", icon="💾")
     with tab4:
         daily_cost = pets.groupby('Date')['Total Cost (KES)'].sum().reset_index()
         fig = px.area(daily_cost, x='Date', y='Total Cost (KES)', color_discrete_sequence=['#FF9800'], title="Daily Pet Feeding Cost")
         fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 
 # ============================================
@@ -1204,8 +1248,8 @@ elif page == "📋 Tasks":
             st.markdown(f"""<div class="dashboard-card" style="padding: 15px; border-left: 4px solid {priority_color};">{task['Status']} <strong>{task['Task']}</strong><br><small style="color: #888;">👤 {task['Assigned To']} | 🔴 Priority: {task['Priority']}</small></div>""", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("##### ✏️ Edit Tasks")
-    edited = ordered_editor('tasks_data', tasks, use_container_width=True, num_rows="dynamic")
-    if not edited.equals(tasks):
+    edited = ordered_editor('tasks_data', tasks, width="stretch", num_rows="dynamic")
+    if not safe_equals(edited, tasks):
         save('tasks_data', edited)
         st.toast("✅ Tasks saved!", icon="💾")
 
@@ -1232,14 +1276,14 @@ elif page == "🌤️ Weather":
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=weather['Date'], y=weather['Temperature (C)'], fill='tozeroy', name='Temperature', line=dict(color='#FF6F00', width=3)))
         fig.update_layout(title="Temperature Trend (7 days)", height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         fig = go.Figure()
         fig.add_trace(go.Bar(x=weather['Date'], y=weather['Rainfall (mm)'], marker_color='#2196F3', name='Rainfall'))
         fig.update_layout(title="Rainfall (7 days)", height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
-    edited = ordered_editor('weather_data', weather, use_container_width=True, num_rows="dynamic")
-    if not edited.equals(weather):
+        st.plotly_chart(fig, width="stretch")
+    edited = ordered_editor('weather_data', weather, width="stretch", num_rows="dynamic")
+    if not safe_equals(edited, weather):
         save('weather_data', edited)
         st.toast("✅ Weather data saved!", icon="💾")
 
@@ -1265,17 +1309,17 @@ elif page == "💰 Finance":
         type_summary = fin.groupby('Type')['Amount (KES)'].sum().reset_index()
         fig = px.pie(type_summary, values='Amount (KES)', names='Type', color_discrete_map={'Income': '#4CAF50', 'Expense': '#f44336'}, hole=0.5, title="Income vs Expenses")
         fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
         cat_summary = fin.groupby(['Category', 'Type'])['Amount (KES)'].sum().reset_index()
         fig = px.bar(cat_summary, x='Category', y='Amount (KES)', color='Type', barmode='group', color_discrete_map={'Income': '#4CAF50', 'Expense': '#f44336'}, title="By Category")
         fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     payment_methods = fin['Payment Method'].unique().tolist()
-    st.plotly_chart(createMiniDonut([fin[fin['Payment Method'] == m]['Amount (KES)'].sum() for m in payment_methods], payment_methods, ['#4CAF50', '#FF9800', '#2196F3'], "Payment Methods"), use_container_width=True)
+    st.plotly_chart(createMiniDonut([fin[fin['Payment Method'] == m]['Amount (KES)'].sum() for m in payment_methods], payment_methods, ['#4CAF50', '#FF9800', '#2196F3'], "Payment Methods"), width="stretch")
     st.markdown("##### ✏️ Edit Financial Records")
-    edited = ordered_editor('finance_data', fin, use_container_width=True, num_rows="dynamic")
-    if not edited.equals(fin):
+    edited = ordered_editor('finance_data', fin, width="stretch", num_rows="dynamic")
+    if not safe_equals(edited, fin):
         save('finance_data', edited)
         st.toast("✅ Finance data saved!", icon="💾")
 
@@ -1306,11 +1350,11 @@ elif page == "📦 Feed Inventory":
         fig.add_trace(go.Bar(x=feed['Feed Type'].tolist(), y=feed['Quantity (kg)'].tolist(), marker_color=['#f44336' if w else '#4CAF50' for w in reorder_warning], name='Stock'))
         fig.add_trace(go.Scatter(x=feed['Feed Type'].tolist(), y=feed['Reorder Level (kg)'].tolist(), mode='markers+lines', marker=dict(color='red', size=12, symbol='x'), name='Reorder Level'))
         fig.update_layout(title="Stock vs Reorder Level", height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     with col2:
-        st.plotly_chart(createMiniDonut(feed['Quantity (kg)'].tolist(), feed['Feed Type'].tolist(), px.colors.qualitative.Set2[:len(feed)], "Inventory Distribution"), use_container_width=True)
-    edited = ordered_editor('feed_data', feed, use_container_width=True, num_rows="dynamic")
-    if not edited.equals(feed):
+        st.plotly_chart(createMiniDonut(feed['Quantity (kg)'].tolist(), feed['Feed Type'].tolist(), px.colors.qualitative.Set2[:len(feed)], "Inventory Distribution"), width="stretch")
+    edited = ordered_editor('feed_data', feed, width="stretch", num_rows="dynamic")
+    if not safe_equals(edited, feed):
         save('feed_data', edited)
         st.toast("✅ Feed inventory saved!", icon="💾")
 
@@ -1342,7 +1386,7 @@ elif page == "📊 Reports":
                 data=excel_bytes,
                 file_name=filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
             )
     st.markdown("---")
     st.markdown("##### 📊 Complete Financial Summary")
@@ -1408,7 +1452,7 @@ elif page == "💾 Backup & Restore":
             if db_bytes:
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
                 filename = f"liz_farm_backup_{timestamp}.db"
-                st.download_button(label=f"📥 Download Backup ({info['size_mb']} MB)", data=db_bytes, file_name=filename, mime="application/octet-stream", type="primary", use_container_width=True)
+                st.download_button(label=f"📥 Download Backup ({info['size_mb']} MB)", data=db_bytes, file_name=filename, mime="application/octet-stream", type="primary", width="stretch")
                 st.success(f"✅ Ready to download: `{filename}`")
     with col2:
         st.markdown("""<div class="section-header" style="font-size: 1.1em; padding: 14px 20px; margin-top: 0;">📤 Restore from Backup</div>""", unsafe_allow_html=True)
@@ -1417,7 +1461,7 @@ elif page == "💾 Backup & Restore":
         if uploaded is not None:
             file_bytes = uploaded.read()
             st.info(f"📄 Uploaded: `{uploaded.name}` ({len(file_bytes):,} bytes)")
-            if st.button("🔄 Restore This Backup", type="primary", use_container_width=True):
+            if st.button("🔄 Restore This Backup", type="primary", width="stretch"):
                 with st.spinner("Restoring database..."):
                     success, message = db.restore_database(file_bytes)
                 if success:
@@ -1432,16 +1476,16 @@ elif page == "💾 Backup & Restore":
     st.markdown("##### ⚡ Quick Actions")
     q1, q2, q3 = st.columns(3)
     with q1:
-        if st.button("🔄 Reload All Data from DB", use_container_width=True):
+        if st.button("🔄 Reload All Data from DB", width="stretch"):
             db.load_all()
             st.session_state._db_loaded = True
             st.toast("✅ All data reloaded from database!", icon="🔄")
             st.rerun()
     with q2:
-        if st.button("📊 Refresh Stats", use_container_width=True):
+        if st.button("📊 Refresh Stats", width="stretch"):
             st.rerun()
     with q3:
-        if st.button("🗑️ Reset Database (Fresh Start)", use_container_width=True):
+        if st.button("🗑️ Reset Database (Fresh Start)", width="stretch"):
             st.warning("⚠️ This will delete all data and create a fresh database with sample data.")
             if st.button("✅ Yes, Reset Everything", type="primary"):
                 import os as _os

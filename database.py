@@ -5,19 +5,28 @@ Handles all persistence for the farm management app.
 
 import sqlite3
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 import random
 import os
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "liz_farm.db")
+# Ensure the directory exists (Streamlit Cloud may need this)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 
 def get_connection():
     """Get a SQLite connection with row factory."""
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
+    try:
+        conn.execute("PRAGMA foreign_keys=ON")
+    except Exception:
+        pass
     return conn
 
 
@@ -589,15 +598,21 @@ def _execute_many(sql, rows):
 # ═══════════════════════════════════════════════════════════
 
 def get_farm_overview():
-    row = _df("SELECT * FROM farm_overview WHERE id=1").iloc[0]
-    return {
-        'total_land': row['total_land'],
-        'owner': row['owner'],
-        'location': row['location'],
-        'established': int(row['established']),
-        'orange_trees': int(row['orange_trees']),
-        'fruiting_trees': int(row['fruiting_trees']),
-    }
+    try:
+        row = _df("SELECT * FROM farm_overview WHERE id=1").iloc[0]
+        return {
+            'total_land': float(row['total_land']) if not pd.isna(row['total_land']) else 0,
+            'owner': str(row['owner']) if not pd.isna(row['owner']) else '',
+            'location': str(row['location']) if not pd.isna(row['location']) else '',
+            'established': int(row['established']) if not pd.isna(row['established']) else 2020,
+            'orange_trees': int(row['orange_trees']) if not pd.isna(row['orange_trees']) else 0,
+            'fruiting_trees': int(row['fruiting_trees']) if not pd.isna(row['fruiting_trees']) else 0,
+        }
+    except Exception:
+        return {
+            'total_land': 0, 'owner': '', 'location': '',
+            'established': 2020, 'orange_trees': 0, 'fruiting_trees': 0,
+        }
 
 
 # ═══════════════════════════════════════════════════════════
@@ -788,28 +803,54 @@ def save_table(session_key, df):
         sql = f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"
         rows = []
         for _, row in df.iterrows():
-            rows.append(tuple(row[c] for c in df.columns if c in alias))
+            vals = []
+            for c in df.columns:
+                if c in alias:
+                    v = row[c]
+                    # Convert NaN/None to sensible defaults
+                    if pd.isna(v):
+                        # Guess default based on column type
+                        col_type = df[c].dtype
+                        if np.issubdtype(col_type, np.integer):
+                            v = 0
+                        elif np.issubdtype(col_type, np.floating):
+                            v = 0.0
+                        else:
+                            v = ''
+                    vals.append(v)
+            rows.append(tuple(vals))
         _execute_many(sql, rows)
 
 
 def load_all():
     """Load all tables into session_state. Called once at startup."""
     import streamlit as st
-    from database import load_table as _lt
     keys = list(_TABLE_MAP.keys())
     for key in keys:
-        data = _lt(key)
-        if isinstance(data, pd.DataFrame):
-            st.session_state[key] = data
+        try:
+            data = load_table(key)
+            if isinstance(data, pd.DataFrame):
+                # Fill NaN to prevent display issues
+                st.session_state[key] = data.fillna('')
+            else:
+                st.session_state[key] = data
+        except Exception:
+            st.session_state[key] = pd.DataFrame()
     # Farm overview is a dict — convert numpy types to native Python
-    ov = _lt('farm_overview')
-    st.session_state.farm_overview = {k: int(v) if isinstance(v, (int,)) else float(v) if isinstance(v, (float,)) else v for k, v in ov.items()}
+    try:
+        ov = load_table('farm_overview')
+        st.session_state.farm_overview = {k: int(v) if isinstance(v, (int, np.integer)) else float(v) if isinstance(v, (float, np.floating)) else v for k, v in ov.items()}
+    except Exception:
+        st.session_state.farm_overview = {'total_land': 0, 'owner': '', 'location': '', 'established': 2020, 'orange_trees': 0, 'fruiting_trees': 0}
 
 
 def st_import_data(key, df):
     """Store a DataFrame into st.session_state."""
     import streamlit as st
-    st.session_state[key] = df
+    if isinstance(df, pd.DataFrame):
+        st.session_state[key] = df.fillna('')
+    else:
+        st.session_state[key] = df
 
 
 # ═══════════════════════════════════════════════════════════
