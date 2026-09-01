@@ -638,6 +638,11 @@ st.markdown("""
 def format_kes(amount):
     return f"KES {amount:,.0f}"
 
+def ordered_editor(session_key, df, **kwargs):
+    """Display a data editor with canonical column ordering."""
+    ordered = db.order_columns(session_key, df)
+    return st.data_editor(ordered, **kwargs)
+
 def create_gauge(value, title, max_val, color="#2E7D32"):
     fig = go.Figure(go.Indicator(
         mode="gauge+number", value=value,
@@ -948,7 +953,7 @@ elif page == "🐔 Livestock":
     st.markdown("---")
     st.markdown("##### ✏️ Edit Livestock Inventory")
     st.markdown("""<div class="info-box">💡 <strong>Tip:</strong> Edit Male/Female counts below. The <strong>Total</strong> column auto-calculates as Male + Female.</div>""", unsafe_allow_html=True)
-    edited = st.data_editor(inv, use_container_width=True, num_rows="dynamic")
+    edited = ordered_editor('inventory_data', inv, use_container_width=True, num_rows="dynamic")
     if not edited.equals(inv):
         # Auto-calculate Total = Male + Female
         edited['Total'] = edited['Male'] + edited['Female']
@@ -993,13 +998,13 @@ elif page == "🍊 Orange Orchard":
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         st.markdown("##### ✏️ Edit Orchard Data")
-        edited = st.data_editor(orchard, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('orchard_data', orchard, use_container_width=True, num_rows="dynamic")
         if not edited.equals(orchard):
             save('orchard_data', edited)
             st.toast("✅ Orchard data saved!", icon="💾")
     with tab2:
         st.markdown("##### 📦 Harvest History")
-        edited = st.data_editor(harvest, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('orange_harvest_data', harvest, use_container_width=True, num_rows="dynamic")
         if not edited.equals(harvest):
             save('orange_harvest_data', edited)
             st.toast("✅ Harvest log saved!", icon="💾")
@@ -1080,14 +1085,14 @@ elif page == "🛒 Cereal Shop":
             st.plotly_chart(createMiniDonut(cereal_inv['Stock (kg)'].tolist(), cereal_inv['Cereal Type'].tolist(),
                 px.colors.qualitative.Set2[:len(cereal_inv)], "Stock Distribution"), use_container_width=True)
         st.markdown("##### ✏️ Edit Inventory")
-        edited_inv = st.data_editor(cereal_inv, use_container_width=True, num_rows="dynamic")
+        edited_inv = ordered_editor('cereal_inv_data', cereal_inv, use_container_width=True, num_rows="dynamic")
         if not edited_inv.equals(cereal_inv):
             save('cereal_inv_data', edited_inv)
             st.toast("✅ Inventory saved!", icon="💾")
 
     with tab3:
         st.markdown("##### ✏️ Edit Sales Transactions")
-        edited = st.data_editor(cereal, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('cereal_data', cereal, use_container_width=True, num_rows="dynamic")
         if not edited.equals(cereal):
             save('cereal_data', edited)
             st.toast("✅ Cereal sales saved!", icon="💾")
@@ -1130,12 +1135,12 @@ elif page == "🥚 Eggs":
         quality_counts.columns = ['Quality', 'Count']
         st.plotly_chart(createMiniDonut(quality_counts['Count'].tolist(), quality_counts['Quality'].tolist(), ['#4CAF50', '#FF9800'], "Quality Distribution"), use_container_width=True)
     with tab2:
-        edited = st.data_editor(sales, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('egg_sales_data', sales, use_container_width=True, num_rows="dynamic")
         if not edited.equals(sales):
             save('egg_sales_data', edited)
             st.toast("✅ Egg sales saved!", icon="💾")
     with tab3:
-        edited = st.data_editor(eggs, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('egg_data', eggs, use_container_width=True, num_rows="dynamic")
         if not edited.equals(eggs):
             save('egg_data', edited)
             st.toast("✅ Egg production saved!", icon="💾")
@@ -1155,7 +1160,7 @@ elif page == "👤 Employees":
     st.markdown("---")
     tab1, tab2 = st.tabs(["💰 Payment History", "📊 Analytics"])
     with tab1:
-        edited = st.data_editor(payments, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('payments_data', payments, use_container_width=True, num_rows="dynamic")
         if not edited.equals(payments):
             save('payments_data', edited)
             st.toast("✅ Payment data saved!", icon="💾")
@@ -1187,14 +1192,14 @@ elif page == "🐾 Pets & Feeding":
             fig = px.bar(pets, x='Food Type', y='Total Cost (KES)', color='Pet Type', title="Cost by Food Type")
             fig.update_layout(height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
-        edited = st.data_editor(pets, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('pet_feed_data', pets, use_container_width=True, num_rows="dynamic")
         if not edited.equals(pets):
             save('pet_feed_data', edited)
             st.toast("✅ Pet feeding data saved!", icon="💾")
     with tab2:
         st.markdown("##### 🐱 Cat Meal Menu")
         st.markdown("""<div class="info-box">🐱 <strong>Cat Feeding Program</strong> - 7 cats fed daily with balanced nutrition<br>🕐 Schedule: Breakfast (6AM), Lunch (12PM), Dinner (6PM), Treat (9PM)</div>""", unsafe_allow_html=True)
-        edited = st.data_editor(cat_menu, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('cat_menu_data', cat_menu, use_container_width=True, num_rows="dynamic")
         if not edited.equals(cat_menu):
             save('cat_menu_data', edited)
             st.toast("✅ Cat menu saved!", icon="💾")
@@ -1202,7 +1207,7 @@ elif page == "🐾 Pets & Feeding":
         st.markdown("##### 💀 Mortality Tracker")
         st.markdown("""<div class="success-box">🎉 <strong>Great news!</strong> No livestock losses recorded. All animals are healthy.</div>""", unsafe_allow_html=True)
         mort = st.session_state.mortality_data
-        edited = st.data_editor(mort, use_container_width=True, num_rows="dynamic")
+        edited = ordered_editor('mortality_data', mort, use_container_width=True, num_rows="dynamic")
         if not edited.equals(mort):
             save('mortality_data', edited)
             st.toast("✅ Mortality data saved!", icon="💾")
@@ -1240,7 +1245,7 @@ elif page == "📋 Tasks":
             st.markdown(f"""<div class="dashboard-card" style="padding: 15px; border-left: 4px solid {priority_color};">{task['Status']} <strong>{task['Task']}</strong><br><small style="color: #888;">👤 {task['Assigned To']} | 🔴 Priority: {task['Priority']}</small></div>""", unsafe_allow_html=True)
     st.markdown("---")
     st.markdown("##### ✏️ Edit Tasks")
-    edited = st.data_editor(tasks, use_container_width=True, num_rows="dynamic")
+    edited = ordered_editor('tasks_data', tasks, use_container_width=True, num_rows="dynamic")
     if not edited.equals(tasks):
         save('tasks_data', edited)
         st.toast("✅ Tasks saved!", icon="💾")
@@ -1274,7 +1279,7 @@ elif page == "🌤️ Weather":
         fig.add_trace(go.Bar(x=weather['Date'], y=weather['Rainfall (mm)'], marker_color='#2196F3', name='Rainfall'))
         fig.update_layout(title="Rainfall (7 days)", height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, use_container_width=True)
-    edited = st.data_editor(weather, use_container_width=True, num_rows="dynamic")
+    edited = ordered_editor('weather_data', weather, use_container_width=True, num_rows="dynamic")
     if not edited.equals(weather):
         save('weather_data', edited)
         st.toast("✅ Weather data saved!", icon="💾")
@@ -1310,7 +1315,7 @@ elif page == "💰 Finance":
     payment_methods = fin['Payment Method'].unique().tolist()
     st.plotly_chart(createMiniDonut([fin[fin['Payment Method'] == m]['Amount (KES)'].sum() for m in payment_methods], payment_methods, ['#4CAF50', '#FF9800', '#2196F3'], "Payment Methods"), use_container_width=True)
     st.markdown("##### ✏️ Edit Financial Records")
-    edited = st.data_editor(fin, use_container_width=True, num_rows="dynamic")
+    edited = ordered_editor('finance_data', fin, use_container_width=True, num_rows="dynamic")
     if not edited.equals(fin):
         save('finance_data', edited)
         st.toast("✅ Finance data saved!", icon="💾")
@@ -1345,7 +1350,7 @@ elif page == "📦 Feed Inventory":
         st.plotly_chart(fig, use_container_width=True)
     with col2:
         st.plotly_chart(createMiniDonut(feed['Quantity (kg)'].tolist(), feed['Feed Type'].tolist(), px.colors.qualitative.Set2[:len(feed)], "Inventory Distribution"), use_container_width=True)
-    edited = st.data_editor(feed, use_container_width=True, num_rows="dynamic")
+    edited = ordered_editor('feed_data', feed, use_container_width=True, num_rows="dynamic")
     if not edited.equals(feed):
         save('feed_data', edited)
         st.toast("✅ Feed inventory saved!", icon="💾")
@@ -1356,35 +1361,30 @@ elif page == "📦 Feed Inventory":
 # ============================================
 elif page == "📊 Reports":
     st.markdown('<div class="section-header">📊 Comprehensive Farm Reports</div>', unsafe_allow_html=True)
-    st.markdown("##### 📥 Export Data")
+    st.markdown("##### 📥 Export Data (Formatted Excel)")
     col1, col2, col3 = st.columns(3)
-    datasets = {
-        "📊 Livestock": st.session_state.inventory_data,
-        "🍊 Orange Orchard": st.session_state.orchard_data,
-        "🍊 Orange Harvest": st.session_state.orange_harvest_data,
-        "🛒 Cereal Shop Sales": st.session_state.cereal_data,
-        "📦 Cereal Inventory": st.session_state.cereal_inv_data,
-        "🥚 Egg Production": st.session_state.egg_data,
-        "🥚 Egg Sales": st.session_state.egg_sales_data,
-        "👤 Employees": st.session_state.employee_data,
-        "💰 Payments": st.session_state.payments_data,
-        "🐾 Pet Feeding": st.session_state.pet_feed_data,
-        "🍽️ Cat Menu": st.session_state.cat_menu_data,
-        "📈 Finance": st.session_state.finance_data,
-        "📦 Feed Inventory": st.session_state.feed_data,
-        "📋 Tasks": st.session_state.tasks_data,
-        "🌤️ Weather": st.session_state.weather_data,
-        "🐣 Chicks": st.session_state.chick_data,
-    }
-    for idx, (name, df) in enumerate(datasets.items()):
+    export_keys = [
+        'inventory_data', 'orchard_data', 'orange_harvest_data',
+        'cereal_data', 'cereal_inv_data',
+        'egg_data', 'egg_sales_data',
+        'employee_data', 'payments_data',
+        'pet_feed_data', 'cat_menu_data',
+        'finance_data', 'feed_data',
+        'tasks_data', 'weather_data', 'chick_data',
+    ]
+    for idx, key in enumerate(export_keys):
+        df = st.session_state[key]
+        display_name = db.SHEET_NAMES.get(key, key)
         col = [col1, col2, col3][idx % 3]
         with col:
-            buffer = BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name=name[:30])
-            excel_data = buffer.getvalue()
-            b64 = base64.b64encode(excel_data).decode()
-            st.markdown(f'<a href="data:application/octet-stream;base64,{b64}" download="{name}.xlsx" style="text-decoration:none;"><div class="dashboard-card" style="padding:15px; cursor:pointer; text-align:center;">📥<br><strong>{name}</strong><br><small style="color:#888;">{len(df)} records</small></div></a>', unsafe_allow_html=True)
+            excel_bytes, filename = db.export_excel(key, df)
+            st.download_button(
+                label=f"📥 {display_name} ({len(df)} rows)",
+                data=excel_bytes,
+                file_name=filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
     st.markdown("---")
     st.markdown("##### 📊 Complete Financial Summary")
     fin = st.session_state.finance_data

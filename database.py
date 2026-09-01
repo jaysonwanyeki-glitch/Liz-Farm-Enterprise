@@ -863,3 +863,181 @@ def get_table_stats():
         stats.append({'table': t, 'rows': count})
     conn.close()
     return stats
+
+
+# ═══════════════════════════════════════════════════════════
+#  COLUMN ORDER & EXCEL FORMATTING
+# ═══════════════════════════════════════════════════════════
+
+# Canonical column order for every table (Streamlit names)
+COLUMN_ORDER = {
+    'inventory_data': [
+        'Category', 'Male', 'Female', 'Total', 'Age (months)',
+        'Health Status', 'Location', 'Notes'
+    ],
+    'orchard_data': [
+        'Date', 'Tree ID', 'Variety', 'Age (years)', 'Fruiting',
+        'Harvest (kg)', 'Quality', 'Fertilizer Used', 'Pest Control',
+        'Next Harvest', 'Notes'
+    ],
+    'orange_harvest_data': [
+        'Date', 'Quantity (kg)', 'Grade A (kg)', 'Grade B (kg)',
+        'Selling Price (KES/kg)', 'Total Revenue (KES)',
+        'Harvested By', 'Buyer', 'Payment Received', 'Notes'
+    ],
+    'cereal_data': [
+        'Date', 'Cereal Type', 'Quantity (kg)', 'Buying Price (KES/kg)',
+        'Selling Price (KES/kg)', 'Total Cost (KES)',
+        'Total Revenue (KES)', 'Profit/Loss (KES)', 'Sold By',
+        'Payment Method', 'Customer Type', 'Notes'
+    ],
+    'cereal_inv_data': [
+        'Cereal Type', 'Stock (kg)', 'Buying Price (KES/kg)',
+        'Selling Price (KES/kg)', 'Min Stock (kg)', 'Max Stock (kg)',
+        'Supplier', 'Last Restocked', 'Status', 'Notes'
+    ],
+    'employee_data': [
+        'Employee Name', 'Role', 'Work Location', 'Start Date',
+        'Salary (KES/month)', 'Payment Method', 'Phone', 'Status', 'Notes'
+    ],
+    'payments_data': [
+        'Month', 'Employee', 'Amount (KES)', 'Date Paid',
+        'Payment Method', 'Status'
+    ],
+    'egg_data': [
+        'Date', 'Day', 'Month', 'Trays', 'Eggs per Tray',
+        'Total Eggs', 'Sellable', 'Cracked', 'Quality', 'Notes'
+    ],
+    'egg_sales_data': [
+        'Date', 'Trays Sold', 'Price per Tray (KES)',
+        'Total Revenue (KES)', 'Customer', 'Payment Status', 'Notes'
+    ],
+    'fruit_data': [
+        'Date', 'Fruit Type', 'Quantity', 'Unit', 'Quality',
+        'Harvested By', 'Selling Price (KES/kg)', 'Total Revenue (KES)', 'Notes'
+    ],
+    'chick_data': [
+        'Hatch Date', 'Breed', '# Hatched', 'Survival',
+        'Survival %', 'Location', 'Vaccinated', 'Notes'
+    ],
+    'pet_feed_data': [
+        'Date', 'Pet Type', 'Meal', 'Food Type', 'Quantity (kg)',
+        'Cost per kg (KES)', 'Total Cost (KES)', 'Fed By',
+        'Animals Fed', 'Notes'
+    ],
+    'mortality_data': [
+        'Date', 'Species', 'Age', 'Lost', 'Reason',
+        'Action Taken', 'Prevention', 'Severity'
+    ],
+    'cat_menu_data': [
+        'Date', 'Day', 'Meal', 'Ingredients', 'Portion (cups)',
+        'Schedule', 'Cats Fed', 'Notes'
+    ],
+    'finance_data': [
+        'Date', 'Source/Expense', 'Type', 'Amount (KES)',
+        'Category', 'Payment Method', 'Notes'
+    ],
+    'feed_data': [
+        'Feed Type', 'Quantity (kg)', 'Cost per kg (KES)',
+        'Supplier', 'Last Ordered', 'Reorder Level (kg)', 'Status'
+    ],
+    'tasks_data': [
+        'Date', 'Task', 'Priority', 'Assigned To',
+        'Status', 'Category', 'Notes'
+    ],
+    'weather_data': [
+        'Date', 'Temperature (C)', 'Humidity (%)', 'Weather',
+        'Rainfall (mm)', 'Notes'
+    ],
+}
+
+# Friendly sheet names for Excel exports (no emoji, max 31 chars)
+SHEET_NAMES = {
+    'inventory_data':       'Livestock Inventory',
+    'orchard_data':         'Orange Orchard',
+    'orange_harvest_data':  'Orange Harvest Log',
+    'cereal_data':          'Cereal Shop Sales',
+    'cereal_inv_data':      'Cereal Inventory',
+    'egg_data':             'Egg Production',
+    'egg_sales_data':       'Egg Sales',
+    'employee_data':        'Employees',
+    'payments_data':        'Employee Payments',
+    'fruit_data':           'Fruit Production',
+    'chick_data':           'Hatched Chicks',
+    'pet_feed_data':        'Pet Feeding Log',
+    'mortality_data':       'Mortality Tracker',
+    'cat_menu_data':        'Cat Meal Menu',
+    'finance_data':         'Farm Finance',
+    'feed_data':            'Feed Inventory',
+    'tasks_data':           'Daily Tasks',
+    'weather_data':         'Weather Log',
+}
+
+
+def order_columns(session_key, df):
+    """Reorder a DataFrame to the canonical column order."""
+    if session_key not in COLUMN_ORDER:
+        return df
+    desired = COLUMN_ORDER[session_key]
+    present = [c for c in desired if c in df.columns]
+    extra = [c for c in df.columns if c not in present]
+    return df[present + extra]
+
+
+def export_excel(session_key, df):
+    """Create a formatted Excel file in memory.
+    
+    Returns (bytes, filename).
+    """
+    from io import BytesIO
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    ordered = order_columns(session_key, df)
+    sheet_name = SHEET_NAMES.get(session_key, session_key)[:31]
+    
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        ordered.to_excel(writer, index=False, sheet_name=sheet_name)
+        ws = writer.sheets[sheet_name]
+        
+        # Header styling
+        header_font = Font(bold=True, color='FFFFFF', size=11)
+        header_fill = PatternFill(start_color='2E7D32', end_color='2E7D32', fill_type='solid')
+        header_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin_border = Border(
+            left=Side(style='thin', color='CCCCCC'),
+            right=Side(style='thin', color='CCCCCC'),
+            top=Side(style='thin', color='CCCCCC'),
+            bottom=Side(style='thin', color='CCCCCC')
+        )
+        
+        for col_idx in range(1, len(ordered.columns) + 1):
+            cell = ws.cell(row=1, column=col_idx)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = thin_border
+        
+        # Auto-fit column widths
+        for col_idx, col_name in enumerate(ordered.columns, 1):
+            max_len = len(str(col_name))
+            for row_idx in range(2, len(ordered) + 2):
+                cell_val = str(ws.cell(row=row_idx, column=col_idx).value or '')
+                max_len = max(max_len, len(cell_val))
+            ws.column_dimensions[ws.cell(row=1, column=col_idx).column_letter].width = min(max_len + 4, 35)
+        
+        # Data cell styling
+        data_align = Alignment(vertical='center')
+        alt_fill = PatternFill(start_color='F1F8E9', end_color='F1F8E9', fill_type='solid')
+        for row_idx in range(2, len(ordered) + 2):
+            for col_idx in range(1, len(ordered.columns) + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.alignment = data_align
+                cell.border = thin_border
+                if row_idx % 2 == 0:
+                    cell.fill = alt_fill
+        
+        # Freeze header row
+        ws.freeze_panes = 'A2'
+    
+    filename = f"liz_farm_{session_key.replace('_data', '').replace('_', '-')}.xlsx"
+    return buffer.getvalue(), filename
