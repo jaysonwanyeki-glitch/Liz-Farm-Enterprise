@@ -910,7 +910,10 @@ elif page == "🍊 Orange Orchard":
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         with col2:
-            fig = px.scatter(orchard, x='Age (years)', y='Harvest (kg)', size='Harvest (kg)', color='Quality', hover_data={'Tree ID': True, 'Age (years)': False, 'Harvest (kg)': False}, title="Age vs Harvest")
+            _orch = orchard.copy()
+            _orch['Harvest (kg)'] = pd.to_numeric(_orch['Harvest (kg)'], errors='coerce').fillna(0)
+            _orch['Age (years)'] = pd.to_numeric(_orch['Age (years)'], errors='coerce').fillna(0)
+            fig = px.scatter(_orch, x='Age (years)', y='Harvest (kg)', size='Harvest (kg)', color='Quality', hover_data={'Tree ID': True, 'Age (years)': False, 'Harvest (kg)': False}, title="Age vs Harvest")
             fig.update_layout(height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig, use_container_width=True)
         st.markdown("##### ✏️ Edit Orchard Data")

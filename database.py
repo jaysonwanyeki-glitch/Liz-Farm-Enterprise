@@ -26,28 +26,16 @@ def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Check if already initialized — require ALL tables, not just farm_overview
-    REQUIRED_TABLES = {
-        "farm_overview", "inventory", "orchard", "orange_harvest",
-        "cereal_shop", "cereal_inventory", "cereal_daily_sales",
-        "employees", "employee_payments", "egg_production", "egg_sales",
-        "fruit_production", "chicks", "pet_feeding", "mortality",
-        "cat_menu", "finance", "feed_inventory", "tasks", "weather",
-    }
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    existing = {row[0] for row in cursor.fetchall()}
-    if REQUIRED_TABLES.issubset(existing):
-        conn.close()
-        return
-    # Some tables missing — drop everything and recreate fresh
-    for tbl in list(existing):
-        cursor.execute(f"DROP TABLE IF EXISTS [{tbl}]")
-    cursor.execute("DROP TABLE IF EXISTS sqlite_sequence")
-    conn.commit()
+    # Always use CREATE TABLE IF NOT EXISTS so this is idempotent.
+    # Seed data is only inserted when the table is empty.
+
+    def _table_empty(name):
+        cursor.execute(f"SELECT COUNT(*) FROM [{name}]")
+        return cursor.fetchone()[0] == 0
 
     # ── 1. farm_overview ──────────────────────────────────
     cursor.execute("""
-    CREATE TABLE farm_overview (
+    CREATE TABLE IF NOT EXISTS farm_overview (
         id          INTEGER PRIMARY KEY DEFAULT 1,
         total_land  REAL,
         owner       TEXT,
@@ -56,14 +44,15 @@ def init_db():
         orange_trees INTEGER,
         fruiting_trees INTEGER
     )""")
-    cursor.execute("""
-    INSERT INTO farm_overview (id, total_land, owner, location, established, orange_trees, fruiting_trees)
-    VALUES (1, 2.95, 'Liz', 'Kenya', 2020, 45, 38)
-    """)
+    if _table_empty('farm_overview'):
+        cursor.execute("""
+        INSERT INTO farm_overview (id, total_land, owner, location, established, orange_trees, fruiting_trees)
+        VALUES (1, 2.95, 'Liz', 'Kenya', 2020, 45, 38)
+        """)
 
     # ── 2. inventory ──────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE inventory (
+    CREATE TABLE IF NOT EXISTS inventory (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         category        TEXT,
         male            INTEGER,
@@ -82,11 +71,12 @@ def init_db():
         ('🐱 Cats', 3, 4, 7, 24, '✅ Excellent', 'House', 'Pest control'),
         ('🐕 Dogs', 1, 1, 2, 18, '✅ Excellent', 'Kennel', 'Guard dogs'),
     ]
-    cursor.executemany("INSERT INTO inventory (category,male,female,total,age_months,health_status,location,notes) VALUES (?,?,?,?,?,?,?,?)", inventory_rows)
+    if _table_empty('inventory'):
+        cursor.executemany("INSERT INTO inventory (category,male,female,total,age_months,health_status,location,notes) VALUES (?,?,?,?,?,?,?,?)", inventory_rows)
 
     # ── 3. orchard ────────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE orchard (
+    CREATE TABLE IF NOT EXISTS orchard (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         tree_id         TEXT,
@@ -100,9 +90,10 @@ def init_db():
         next_harvest    TEXT,
         notes           TEXT
     )""")
-    for i in range(12):
-        cursor.execute("""
-        INSERT INTO orchard (date,tree_id,variety,age_years,fruiting,harvest_kg,quality,fertilizer_used,pest_control,next_harvest,notes)
+    if _table_empty('orchard'):
+        for i in range(12):
+            cursor.execute("""
+            INSERT INTO orchard (date,tree_id,variety,age_years,fruiting,harvest_kg,quality,fertilizer_used,pest_control,next_harvest,notes)
         VALUES (?,?,?,?,?,?,?,?,?,?,?)
         """, (
             (datetime.now().date() - timedelta(days=i*7)).strftime('%Y-%m-%d'),
@@ -112,11 +103,11 @@ def init_db():
             'Organic', 'Natural',
             (datetime.now().date() + timedelta(days=random.randint(20, 60))).strftime('%Y-%m-%d'),
             ''
-        ))
+            ))
 
     # ── 4. orange_harvest ─────────────────────────────────
     cursor.execute("""
-    CREATE TABLE orange_harvest (
+    CREATE TABLE IF NOT EXISTS orange_harvest (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         quantity_kg         INTEGER,
@@ -129,22 +120,23 @@ def init_db():
         payment_received    TEXT,
         notes               TEXT
     )""")
-    for i in range(10):
-        qty = random.randint(10, 50)
-        grade_a = int(qty * random.uniform(0.6, 0.9))
-        cursor.execute("""
-        INSERT INTO orange_harvest (date,quantity_kg,grade_a_kg,grade_b_kg,selling_price_kes,total_revenue_kes,harvested_by,buyer,payment_received,notes)
+    if _table_empty('orange_harvest'):
+        for i in range(10):
+            qty = random.randint(10, 50)
+            grade_a = int(qty * random.uniform(0.6, 0.9))
+            cursor.execute("""
+            INSERT INTO orange_harvest (date,quantity_kg,grade_a_kg,grade_b_kg,selling_price_kes,total_revenue_kes,harvested_by,buyer,payment_received,notes)
         VALUES (?,?,?,?,?,?,?,?,?,?)
         """, (
             (datetime.now().date() - timedelta(days=i*3)).strftime('%Y-%m-%d'),
             qty, grade_a, qty - grade_a, 200, qty * 200,
-            'John', 'Local Market',
-            random.choice(['✅ Yes', '⏳ Pending'] + ['✅ Yes']*3), ''
-        ))
+                'John', 'Local Market',
+                random.choice(['✅ Yes', '⏳ Pending'] + ['✅ Yes']*3), ''
+            ))
 
     # ── 5. cereal_shop ────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE cereal_shop (
+    CREATE TABLE IF NOT EXISTS cereal_shop (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         cereal_type         TEXT,
@@ -160,26 +152,27 @@ def init_db():
         notes               TEXT
     )""")
     cereals = ['🌾 Maize', '🌾 Beans', '🌾 Rice', '🌾 Wheat', '🌾 Millet', '🌾 Sorghum', '🌾 Green Grams']
-    for i in range(20):
-        cereal = random.choice(cereals)
-        qty = random.randint(10, 100)
-        bp = random.randint(50, 150)
-        sp = bp + random.randint(30, 80)
-        cursor.execute("""
-        INSERT INTO cereal_shop (date,cereal_type,quantity_kg,buying_price_kes,selling_price_kes,total_cost_kes,total_revenue_kes,profit_loss_kes,sold_by,payment_method,customer_type,notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
-            cereal, qty, bp, sp,
-            qty * bp, qty * sp, qty * (sp - bp),
-            'Grace',
-            random.choice(['Cash', 'M-Pesa', 'Bank']),
-            random.choice(['Retail', 'Wholesale']), ''
-        ))
+    if _table_empty('cereal_shop'):
+        for i in range(20):
+            cereal = random.choice(cereals)
+            qty = random.randint(10, 100)
+            bp = random.randint(50, 150)
+            sp = bp + random.randint(30, 80)
+            cursor.execute("""
+            INSERT INTO cereal_shop (date,cereal_type,quantity_kg,buying_price_kes,selling_price_kes,total_cost_kes,total_revenue_kes,profit_loss_kes,sold_by,payment_method,customer_type,notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                cereal, qty, bp, sp,
+                qty * bp, qty * sp, qty * (sp - bp),
+                'Grace',
+                random.choice(['Cash', 'M-Pesa', 'Bank']),
+                random.choice(['Retail', 'Wholesale']), ''
+            ))
 
     # ── 5b. cereal_inventory ──────────────────────────────
     cursor.execute("""
-    CREATE TABLE cereal_inventory (
+    CREATE TABLE IF NOT EXISTS cereal_inventory (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         cereal_type         TEXT,
         stock_kg            INTEGER,
@@ -201,11 +194,12 @@ def init_db():
         ('🌾 Sorghum', 120, 60, 105, 30, 300, 'Local Market', (datetime.now().date() - timedelta(days=2)).strftime('%Y-%m-%d'), '✅ In Stock', ''),
         ('🌾 Green Grams', 80, 100, 170, 25, 250, 'Mombasa Supplies', (datetime.now().date() - timedelta(days=6)).strftime('%Y-%m-%d'), '✅ In Stock', ''),
     ]
-    cursor.executemany("INSERT INTO cereal_inventory (cereal_type,stock_kg,buying_price_kes,selling_price_kes,min_stock_kg,max_stock_kg,supplier,last_restocked,status,notes) VALUES (?,?,?,?,?,?,?,?,?,?)", cereal_inv_rows)
+    if _table_empty('cereal_inventory'):
+        cursor.executemany("INSERT INTO cereal_inventory (cereal_type,stock_kg,buying_price_kes,selling_price_kes,min_stock_kg,max_stock_kg,supplier,last_restocked,status,notes) VALUES (?,?,?,?,?,?,?,?,?,?)", cereal_inv_rows)
 
     # ── 5c. cereal_daily_sales ─────────────────────────────
     cursor.execute("""
-    CREATE TABLE cereal_daily_sales (
+    CREATE TABLE IF NOT EXISTS cereal_daily_sales (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         total_items_sold    INTEGER,
@@ -220,27 +214,28 @@ def init_db():
         sold_by             TEXT,
         notes               TEXT
     )""")
-    for i in range(30):
-        items = random.randint(3, 12)
-        kg = random.randint(40, 250)
-        cost = kg * random.randint(60, 120)
-        rev = kg * random.randint(100, 180)
-        cash_pct = random.uniform(0.3, 0.7)
-        mpesa_pct = random.uniform(0.2, 0.5)
-        bank_pct = 1 - cash_pct - mpesa_pct
-        cursor.execute("""
-        INSERT INTO cereal_daily_sales (date,total_items_sold,total_kg_sold,total_cost_kes,total_revenue_kes,profit_kes,cash_sales_kes,mpesa_sales_kes,bank_sales_kes,customers_served,sold_by,notes)
+    if _table_empty('cereal_daily_sales'):
+        for i in range(30):
+            items = random.randint(3, 12)
+            kg = random.randint(40, 250)
+            cost = kg * random.randint(60, 120)
+            rev = kg * random.randint(100, 180)
+            cash_pct = random.uniform(0.3, 0.7)
+            mpesa_pct = random.uniform(0.2, 0.5)
+            bank_pct = 1 - cash_pct - mpesa_pct
+            cursor.execute("""
+            INSERT INTO cereal_daily_sales (date,total_items_sold,total_kg_sold,total_cost_kes,total_revenue_kes,profit_kes,cash_sales_kes,mpesa_sales_kes,bank_sales_kes,customers_served,sold_by,notes)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
             items, kg, cost, rev, rev - cost,
             int(rev * cash_pct), int(rev * mpesa_pct), int(rev * bank_pct),
-            random.randint(5, 25), 'Grace', ''
-        ))
+                random.randint(5, 25), 'Grace', ''
+            ))
 
     # ── 6. employees ──────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE employees (
+    CREATE TABLE IF NOT EXISTS employees (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         employee_name   TEXT,
         role            TEXT,
@@ -252,14 +247,15 @@ def init_db():
         status          TEXT,
         notes           TEXT
     )""")
-    cursor.executemany("INSERT INTO employees (employee_name,role,work_location,start_date,salary_kes,payment_method,phone,status,notes) VALUES (?,?,?,?,?,?,?,?,?)", [
+    if _table_empty('employees'):
+        cursor.executemany("INSERT INTO employees (employee_name,role,work_location,start_date,salary_kes,payment_method,phone,status,notes) VALUES (?,?,?,?,?,?,?,?,?)", [
         ('John Mwangi', 'Farm Worker', 'Shamba (Farm)', (datetime.now().date() - timedelta(days=180)).strftime('%Y-%m-%d'), 20000, 'M-Pesa', '0712345678', '✅ Active', 'Experienced farmer'),
         ('Grace Akinyi', 'Cereal Shop Attendant', 'Cereal Shop', (datetime.now().date() - timedelta(days=150)).strftime('%Y-%m-%d'), 18000, 'M-Pesa', '0723456789', '✅ Active', 'Good with customers'),
-    ])
+        ])
 
     # ── 7. employee_payments ──────────────────────────────
     cursor.execute("""
-    CREATE TABLE employee_payments (
+    CREATE TABLE IF NOT EXISTS employee_payments (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         month           TEXT,
         employee        TEXT,
@@ -268,16 +264,17 @@ def init_db():
         payment_method  TEXT,
         status          TEXT
     )""")
-    for i in range(6):
-        month = (datetime.now().date() - timedelta(days=30*i)).strftime('%Y-%m')
-        cursor.execute("INSERT INTO employee_payments (month,employee,amount_kes,date_paid,payment_method,status) VALUES (?,?,?,?,?,?)",
-            (month, 'John Mwangi', 20000, (datetime.now().date() - timedelta(days=30*i+5)).strftime('%Y-%m-%d'), 'M-Pesa', '✅ Paid'))
-        cursor.execute("INSERT INTO employee_payments (month,employee,amount_kes,date_paid,payment_method,status) VALUES (?,?,?,?,?,?)",
-            (month, 'Grace Akinyi', 18000, (datetime.now().date() - timedelta(days=30*i+7)).strftime('%Y-%m-%d'), 'M-Pesa', '✅ Paid'))
+    if _table_empty('employee_payments'):
+        for i in range(6):
+            month = (datetime.now().date() - timedelta(days=30*i)).strftime('%Y-%m')
+            cursor.execute("INSERT INTO employee_payments (month,employee,amount_kes,date_paid,payment_method,status) VALUES (?,?,?,?,?,?)",
+                (month, 'John Mwangi', 20000, (datetime.now().date() - timedelta(days=30*i+5)).strftime('%Y-%m-%d'), 'M-Pesa', '✅ Paid'))
+            cursor.execute("INSERT INTO employee_payments (month,employee,amount_kes,date_paid,payment_method,status) VALUES (?,?,?,?,?,?)",
+                (month, 'Grace Akinyi', 18000, (datetime.now().date() - timedelta(days=30*i+7)).strftime('%Y-%m-%d'), 'M-Pesa', '✅ Paid'))
 
     # ── 8. egg_production ─────────────────────────────────
     cursor.execute("""
-    CREATE TABLE egg_production (
+    CREATE TABLE IF NOT EXISTS egg_production (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         day_name        TEXT,
@@ -290,23 +287,24 @@ def init_db():
         quality         TEXT,
         notes           TEXT
     )""")
-    for i in range(30):
-        d = datetime.now().date() + timedelta(days=i)
-        trays = random.randint(2, 6)
-        total = trays * 30
-        cracked = random.randint(0, 5)
-        cursor.execute("""
-        INSERT INTO egg_production (date,day_name,month_name,trays,eggs_per_tray,total_eggs,sellable,cracked,quality,notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (
-            d.strftime('%Y-%m-%d'), d.strftime('%A'), d.strftime('%B'),
-            trays, 30, total, total - cracked, cracked,
-            random.choice(['Grade A', 'Grade A', 'Grade A', 'Grade B']), ''
-        ))
+    if _table_empty('egg_production'):
+        for i in range(30):
+            d = datetime.now().date() + timedelta(days=i)
+            trays = random.randint(2, 6)
+            total = trays * 30
+            cracked = random.randint(0, 5)
+            cursor.execute("""
+            INSERT INTO egg_production (date,day_name,month_name,trays,eggs_per_tray,total_eggs,sellable,cracked,quality,notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            """, (
+                d.strftime('%Y-%m-%d'), d.strftime('%A'), d.strftime('%B'),
+                trays, 30, total, total - cracked, cracked,
+                random.choice(['Grade A', 'Grade A', 'Grade A', 'Grade B']), ''
+            ))
 
     # ── 9. egg_sales ──────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE egg_sales (
+    CREATE TABLE IF NOT EXISTS egg_sales (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         trays_sold          INTEGER,
@@ -316,20 +314,21 @@ def init_db():
         payment_status      TEXT,
         notes               TEXT
     )""")
-    for i in range(15):
-        trays = random.randint(1, 5)
-        cursor.execute("""
-        INSERT INTO egg_sales (date,trays_sold,price_per_tray_kes,total_revenue_kes,customer,payment_status,notes)
-        VALUES (?,?,?,?,?,?,?)
-        """, (
-            (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
-            trays, 500, trays * 500, 'Local Market',
-            random.choice(['✅ Paid', '✅ Paid', '⏳ Pending']), ''
-        ))
+    if _table_empty('egg_sales'):
+        for i in range(15):
+            trays = random.randint(1, 5)
+            cursor.execute("""
+            INSERT INTO egg_sales (date,trays_sold,price_per_tray_kes,total_revenue_kes,customer,payment_status,notes)
+            VALUES (?,?,?,?,?,?,?)
+            """, (
+                (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                trays, 500, trays * 500, 'Local Market',
+                random.choice(['✅ Paid', '✅ Paid', '⏳ Pending']), ''
+            ))
 
     # ── 10. fruit_production ──────────────────────────────
     cursor.execute("""
-    CREATE TABLE fruit_production (
+    CREATE TABLE IF NOT EXISTS fruit_production (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         fruit_type          TEXT,
@@ -341,24 +340,25 @@ def init_db():
         total_revenue_kes   INTEGER,
         notes               TEXT
     )""")
-    fruits = ['🍊 Oranges', '🥥 Coconuts', '🍍 Pawpaw', '🌽 Maize']
-    for i in range(14):
-        fruit = random.choice(fruits)
-        qty = random.randint(10, 60)
-        sp = random.randint(150, 300)
-        cursor.execute("""
-        INSERT INTO fruit_production (date,fruit_type,quantity,unit,quality,harvested_by,selling_price_kes,total_revenue_kes,notes)
-        VALUES (?,?,?,?,?,?,?,?,?)
-        """, (
-            (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
-            fruit, qty, 'kg',
-            random.choice(['Grade A', 'Grade A', 'Grade B']),
-            'John', sp, qty * sp, ''
-        ))
+    if _table_empty('fruit_production'):
+        fruits = ['🍊 Oranges', '🥥 Coconuts', '🍍 Pawpaw', '🌽 Maize']
+        for i in range(14):
+            fruit = random.choice(fruits)
+            qty = random.randint(10, 60)
+            sp = random.randint(150, 300)
+            cursor.execute("""
+            INSERT INTO fruit_production (date,fruit_type,quantity,unit,quality,harvested_by,selling_price_kes,total_revenue_kes,notes)
+            VALUES (?,?,?,?,?,?,?,?,?)
+            """, (
+                (datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                fruit, qty, 'kg',
+                random.choice(['Grade A', 'Grade A', 'Grade B']),
+                'John', sp, qty * sp, ''
+            ))
 
     # ── 11. chicks ────────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE chicks (
+    CREATE TABLE IF NOT EXISTS chicks (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         hatch_date      TEXT,
         breed           TEXT,
@@ -369,17 +369,18 @@ def init_db():
         vaccinated      TEXT,
         notes           TEXT
     )""")
-    for i, days_ago in enumerate([7, 5, 3]):
-        cursor.execute("INSERT INTO chicks (hatch_date,breed,hatched,survival,survival_pct,location,vaccinated,notes) VALUES (?,?,?,?,?,?,?,?)",
-            ((datetime.now().date() - timedelta(days=days_ago)).strftime('%Y-%m-%d'),
-             'Kienyeji', [3, 2, 2][i], [3, 2, 2][i], 100,
-             ['Brooder 1', 'Brooder 2', 'Brooder 1'][i],
-             ['✅ Yes', '✅ Yes', '⏳ Pending'][i],
-             ['Healthy', 'Active', 'Growing well'][i]))
+    if _table_empty('chicks'):
+        for i, days_ago in enumerate([7, 5, 3]):
+            cursor.execute("INSERT INTO chicks (hatch_date,breed,hatched,survival,survival_pct,location,vaccinated,notes) VALUES (?,?,?,?,?,?,?,?)",
+                ((datetime.now().date() - timedelta(days=days_ago)).strftime('%Y-%m-%d'),
+                 'Kienyeji', [3, 2, 2][i], [3, 2, 2][i], 100,
+                 ['Brooder 1', 'Brooder 2', 'Brooder 1'][i],
+                 ['✅ Yes', '✅ Yes', '⏳ Pending'][i],
+                 ['Healthy', 'Active', 'Growing well'][i]))
 
     # ── 12. pet_feeding ───────────────────────────────────
     cursor.execute("""
-    CREATE TABLE pet_feeding (
+    CREATE TABLE IF NOT EXISTS pet_feeding (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         pet_type        TEXT,
@@ -393,24 +394,25 @@ def init_db():
         notes           TEXT
     )""")
     today = datetime.now().date()
-    for i in range(10):
-        qty = round(random.uniform(0.5, 2.0), 1)
-        cpk = random.randint(150, 350)
-        cursor.execute("""
-        INSERT INTO pet_feeding (date,pet_type,meal,food_type,quantity_kg,cost_per_kg_kes,total_cost_kes,fed_by,animals_fed,notes)
-        VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (
-            (today + timedelta(days=i//2)).strftime('%Y-%m-%d'),
-            random.choice(['🐱 Cats', '🐕 Dogs']),
-            ['Morning', 'Evening'][i % 2],
-            random.choice(['🐟 Fish + Rice', '🍗 Chicken + Liver', '🥩 Meat + Vegetables', '🥚 Eggs + Rice']),
-            qty, cpk, round(qty * cpk), 'Liz',
-            random.choice(['7/7', '2/2']), ''
-        ))
+    if _table_empty('pet_feeding'):
+        for i in range(10):
+            qty = round(random.uniform(0.5, 2.0), 1)
+            cpk = random.randint(150, 350)
+            cursor.execute("""
+            INSERT INTO pet_feeding (date,pet_type,meal,food_type,quantity_kg,cost_per_kg_kes,total_cost_kes,fed_by,animals_fed,notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            """, (
+                (today + timedelta(days=i//2)).strftime('%Y-%m-%d'),
+                random.choice(['🐱 Cats', '🐕 Dogs']),
+                ['Morning', 'Evening'][i % 2],
+                random.choice(['🐟 Fish + Rice', '🍗 Chicken + Liver', '🥩 Meat + Vegetables', '🥚 Eggs + Rice']),
+                qty, cpk, round(qty * cpk), 'Liz',
+                random.choice(['7/7', '2/2']), ''
+            ))
 
     # ── 13. mortality ─────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE mortality (
+    CREATE TABLE IF NOT EXISTS mortality (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         species         TEXT,
@@ -421,12 +423,13 @@ def init_db():
         prevention      TEXT,
         severity        TEXT
     )""")
-    cursor.execute("INSERT INTO mortality (date,species,age,lost,reason,action_taken,prevention,severity) VALUES (?,?,?,?,?,?,?,?)",
-        (datetime.now().date().strftime('%Y-%m-%d'), 'None', '0', 0, 'No losses recorded', 'None', 'Monitoring', 'Low'))
+    if _table_empty('mortality'):
+        cursor.execute("INSERT INTO mortality (date,species,age,lost,reason,action_taken,prevention,severity) VALUES (?,?,?,?,?,?,?,?)",
+            (datetime.now().date().strftime('%Y-%m-%d'), 'None', '0', 0, 'No losses recorded', 'None', 'Monitoring', 'Low'))
 
     # ── 14. cat_menu ──────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE cat_menu (
+    CREATE TABLE IF NOT EXISTS cat_menu (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         day_name        TEXT,
@@ -437,19 +440,20 @@ def init_db():
         cats_fed        TEXT,
         notes           TEXT
     )""")
-    meals_list = ['Breakfast', 'Lunch', 'Dinner', 'Evening Treat']
-    ingredients_list = ['Dry kibble + warm milk', 'Fish + rice + vegetables', 'Chicken + liver + broth', 'Catnip + tuna + egg']
-    portions = [0.5, 0.75, 0.5, 0.25]
-    schedules = ['6:00 AM', '12:00 PM', '6:00 PM', '9:00 PM']
-    for i in range(8):
-        d = today + timedelta(days=i//4)
-        cursor.execute("INSERT INTO cat_menu (date,day_name,meal,ingredients,portion_cups,schedule,cats_fed,notes) VALUES (?,?,?,?,?,?,?,?)",
-            (d.strftime('%Y-%m-%d'), d.strftime('%A'), meals_list[i % 4],
-             ingredients_list[i % 4], portions[i % 4], schedules[i % 4], '7/7', ''))
+    if _table_empty('cat_menu'):
+        meals_list = ['Breakfast', 'Lunch', 'Dinner', 'Evening Treat']
+        ingredients_list = ['Dry kibble + warm milk', 'Fish + rice + vegetables', 'Chicken + liver + broth', 'Catnip + tuna + egg']
+        portions = [0.5, 0.75, 0.5, 0.25]
+        schedules = ['6:00 AM', '12:00 PM', '6:00 PM', '9:00 PM']
+        for i in range(8):
+            d = today + timedelta(days=i//4)
+            cursor.execute("INSERT INTO cat_menu (date,day_name,meal,ingredients,portion_cups,schedule,cats_fed,notes) VALUES (?,?,?,?,?,?,?,?)",
+                (d.strftime('%Y-%m-%d'), d.strftime('%A'), meals_list[i % 4],
+                 ingredients_list[i % 4], portions[i % 4], schedules[i % 4], '7/7', ''))
 
     # ── 15. finance ───────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE finance (
+    CREATE TABLE IF NOT EXISTS finance (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
         date                TEXT,
         source_expense      TEXT,
@@ -459,26 +463,27 @@ def init_db():
         payment_method      TEXT,
         notes               TEXT
     )""")
-    fin_rows = [
-        ('Egg Sales', 'Income', 5000, 'Poultry', 'M-Pesa'),
-        ('Orange Sales', 'Income', 3000, 'Orchard', 'Cash'),
-        ('Cereal Sales', 'Income', 8000, 'Cereal Shop', 'M-Pesa'),
-        ('Chicken Feed', 'Expense', 2000, 'Poultry', 'Cash'),
-        ('Employee Salary', 'Expense', 38000, 'Labor', 'Bank'),
-        ('Vaccinations', 'Expense', 1500, 'Health', 'Cash'),
-        ('Fertilizer', 'Expense', 3000, 'Farming', 'Cash'),
-        ('Transport', 'Expense', 2000, 'Logistics', 'M-Pesa'),
-        ('Pet Food', 'Expense', 1000, 'Pets', 'Cash'),
-        ('Miscellaneous', 'Expense', 1500, 'Other', 'Cash'),
-    ]
-    for i, (src, typ, amt, cat, pm) in enumerate(fin_rows):
-        cursor.execute("INSERT INTO finance (date,source_expense,type,amount_kes,category,payment_method,notes) VALUES (?,?,?,?,?,?,?)",
-            ((datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
-             src, typ, amt, cat, pm, ''))
+    if _table_empty('finance'):
+        fin_rows = [
+            ('Egg Sales', 'Income', 5000, 'Poultry', 'M-Pesa'),
+            ('Orange Sales', 'Income', 3000, 'Orchard', 'Cash'),
+            ('Cereal Sales', 'Income', 8000, 'Cereal Shop', 'M-Pesa'),
+            ('Chicken Feed', 'Expense', 2000, 'Poultry', 'Cash'),
+            ('Employee Salary', 'Expense', 38000, 'Labor', 'Bank'),
+            ('Vaccinations', 'Expense', 1500, 'Health', 'Cash'),
+            ('Fertilizer', 'Expense', 3000, 'Farming', 'Cash'),
+            ('Transport', 'Expense', 2000, 'Logistics', 'M-Pesa'),
+            ('Pet Food', 'Expense', 1000, 'Pets', 'Cash'),
+            ('Miscellaneous', 'Expense', 1500, 'Other', 'Cash'),
+        ]
+        for i, (src, typ, amt, cat, pm) in enumerate(fin_rows):
+            cursor.execute("INSERT INTO finance (date,source_expense,type,amount_kes,category,payment_method,notes) VALUES (?,?,?,?,?,?,?)",
+                ((datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                 src, typ, amt, cat, pm, ''))
 
     # ── 16. feed_inventory ────────────────────────────────
     cursor.execute("""
-    CREATE TABLE feed_inventory (
+    CREATE TABLE IF NOT EXISTS feed_inventory (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         feed_type       TEXT,
         quantity_kg     INTEGER,
@@ -488,21 +493,22 @@ def init_db():
         reorder_level   INTEGER,
         status          TEXT
     )""")
-    feed_rows = [
-        ('🐔 Kienyeji Mix', 150, 100, 'Local Mill', 30, '✅ In Stock'),
-        ('🐔 Chick Starter', 50, 120, 'Kenya Feeds', 15, '✅ In Stock'),
-        ('🦆 Duck Feed', 20, 130, 'Kenya Feeds', 10, '✅ In Stock'),
-        ('🐱 Cat Food', 15, 200, 'Petshop', 5, '✅ In Stock'),
-        ('🐕 Dog Food', 12, 180, 'Petshop', 5, '✅ In Stock'),
-        ('🌾 Maize', 200, 80, 'Farm Store', 50, '✅ In Stock'),
-    ]
-    for i, (ft, qty, cpk, sup, rl, status) in enumerate(feed_rows):
-        cursor.execute("INSERT INTO feed_inventory (feed_type,quantity_kg,cost_per_kg_kes,supplier,last_ordered,reorder_level,status) VALUES (?,?,?,?,?,?,?)",
-            (ft, qty, cpk, sup, (datetime.now().date() - timedelta(days=i*2)).strftime('%Y-%m-%d'), rl, status))
+    if _table_empty('feed_inventory'):
+        feed_rows = [
+            ('🐔 Kienyeji Mix', 150, 100, 'Local Mill', 30, '✅ In Stock'),
+            ('🐔 Chick Starter', 50, 120, 'Kenya Feeds', 15, '✅ In Stock'),
+            ('🦆 Duck Feed', 20, 130, 'Kenya Feeds', 10, '✅ In Stock'),
+            ('🐱 Cat Food', 15, 200, 'Petshop', 5, '✅ In Stock'),
+            ('🐕 Dog Food', 12, 180, 'Petshop', 5, '✅ In Stock'),
+            ('🌾 Maize', 200, 80, 'Farm Store', 50, '✅ In Stock'),
+        ]
+        for i, (ft, qty, cpk, sup, rl, status) in enumerate(feed_rows):
+            cursor.execute("INSERT INTO feed_inventory (feed_type,quantity_kg,cost_per_kg_kes,supplier,last_ordered,reorder_level,status) VALUES (?,?,?,?,?,?,?)",
+                (ft, qty, cpk, sup, (datetime.now().date() - timedelta(days=i*2)).strftime('%Y-%m-%d'), rl, status))
 
     # ── 17. tasks ─────────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE tasks (
+    CREATE TABLE IF NOT EXISTS tasks (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         task            TEXT,
@@ -512,25 +518,26 @@ def init_db():
         category        TEXT,
         notes           TEXT
     )""")
-    task_rows = [
-        ('Collect eggs - Poultry', 'High', 'John', '✅ Done', 'Poultry'),
-        ('Feed chickens - Poultry', 'High', 'John', '✅ Done', 'Poultry'),
-        ('Water orange trees - Orchard', 'High', 'John', '✅ Done', 'Orchard'),
-        ('Harvest oranges - Orchard', 'Medium', 'John', '✅ Done', 'Orchard'),
-        ('Clean cereal shop - Shop', 'High', 'Grace', '✅ Done', 'Shop'),
-        ('Restock cereals - Shop', 'Medium', 'Grace', '✅ Done', 'Shop'),
-        ('Health check - All', 'High', 'John', '✅ Done', 'Health'),
-        ('Clean chicken sheds - Poultry', 'Medium', 'John', '✅ Done', 'Maintenance'),
-        ('Check pet feeding - Pets', 'Medium', 'Liz', '✅ Done', 'Pets'),
-    ]
-    today_str = datetime.now().date().strftime('%Y-%m-%d')
-    for task, pri, who, stat, cat in task_rows:
-        cursor.execute("INSERT INTO tasks (date,task,priority,assigned_to,status,category,notes) VALUES (?,?,?,?,?,?,?)",
-            (today_str, task, pri, who, stat, cat, ''))
+    if _table_empty('tasks'):
+        task_rows = [
+            ('Collect eggs - Poultry', 'High', 'John', '✅ Done', 'Poultry'),
+            ('Feed chickens - Poultry', 'High', 'John', '✅ Done', 'Poultry'),
+            ('Water orange trees - Orchard', 'High', 'John', '✅ Done', 'Orchard'),
+            ('Harvest oranges - Orchard', 'Medium', 'John', '✅ Done', 'Orchard'),
+            ('Clean cereal shop - Shop', 'High', 'Grace', '✅ Done', 'Shop'),
+            ('Restock cereals - Shop', 'Medium', 'Grace', '✅ Done', 'Shop'),
+            ('Health check - All', 'High', 'John', '✅ Done', 'Health'),
+            ('Clean chicken sheds - Poultry', 'Medium', 'John', '✅ Done', 'Maintenance'),
+            ('Check pet feeding - Pets', 'Medium', 'Liz', '✅ Done', 'Pets'),
+        ]
+        today_str = datetime.now().date().strftime('%Y-%m-%d')
+        for task, pri, who, stat, cat in task_rows:
+            cursor.execute("INSERT INTO tasks (date,task,priority,assigned_to,status,category,notes) VALUES (?,?,?,?,?,?,?)",
+                (today_str, task, pri, who, stat, cat, ''))
 
     # ── 18. weather ───────────────────────────────────────
     cursor.execute("""
-    CREATE TABLE weather (
+    CREATE TABLE IF NOT EXISTS weather (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
         date            TEXT,
         temperature_c   INTEGER,
@@ -539,12 +546,13 @@ def init_db():
         rainfall_mm     INTEGER,
         notes           TEXT
     )""")
-    weather_types = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rainy', '🌤️ Partly Cloudy']
-    for i in range(7):
-        cursor.execute("INSERT INTO weather (date,temperature_c,humidity_pct,weather,rainfall_mm,notes) VALUES (?,?,?,?,?,?)",
-            ((datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
-             random.randint(22, 32), random.randint(45, 85),
-             random.choice(weather_types), random.randint(0, 20), ''))
+    if _table_empty('weather'):
+        weather_types = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rainy', '🌤️ Partly Cloudy']
+        for i in range(7):
+            cursor.execute("INSERT INTO weather (date,temperature_c,humidity_pct,weather,rainfall_mm,notes) VALUES (?,?,?,?,?,?)",
+                ((datetime.now().date() - timedelta(days=i)).strftime('%Y-%m-%d'),
+                 random.randint(22, 32), random.randint(45, 85),
+                 random.choice(weather_types), random.randint(0, 20), ''))
 
     conn.commit()
     conn.close()
