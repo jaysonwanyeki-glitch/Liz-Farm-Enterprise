@@ -10,6 +10,81 @@ import random
 import calendar
 import database as db
 
+WEATHER_API_KEY = ''
+if hasattr(st, 'secrets'):
+    try:
+        WEATHER_API_KEY = st.secrets.get('WEATHER_API_KEY', '')
+    except Exception:
+        pass
+import urllib.request
+import json
+
+def get_live_weather(location='Nairobi,Kenya'):
+    """Fetch today's weather from Visual Crossing API (free tier: 1000 calls/day).
+    Returns placeholder data if no API key is set."""
+    if not WEATHER_API_KEY or WEATHER_API_KEY.strip() == '':
+        return {
+            'source': 'placeholder',
+            'temperature_c': 27, 'humidity_pct': 65,
+            'condition': '☀️ Sunny', 'rainfall_mm': 0,
+            'date': datetime.now().strftime('%Y-%m-%d'),
+        }
+    url = (
+        f'https://weather.visualcrossing.com/VisualWeather/forecast/weatherapi'
+        f'?key={WEATHER_API_KEY}'
+        f'&location={urllib.request.quote(location)}'
+        f'&unitGroup=metric'
+        f'&contentType=json'
+    )
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'LizFarmHelper/1.0'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        if 'days' not in data or not data['days']:
+            return {'source': 'error', 'error': 'No forecast data returned'}
+        today = data['days'][0]
+        return {
+            'source': 'live',
+            'temperature_c': round(today.get('temp', 25), 1),
+            'humidity_pct': round(today.get('humidity', 60)),
+            'condition': today.get('conditions', '☁️ Cloudy'),
+            'rainfall_mm': round(today.get('precipprob', 0) * 10),
+            'date': today.get('datetime', datetime.now().strftime('%Y-%m-%d')),
+        }
+    except Exception as e:
+        return {'source': 'error', 'error': str(e)[:100]}
+
+
+def get_7day_forecast(location='Nairobi,Kenya'):
+    """Fetch next 7 days of forecast from Visual Crossing."""
+    if not WEATHER_API_KEY or WEATHER_API_KEY.strip() == '':
+        return []
+    url = (
+        f'https://weather.visualcrossing.com/VisualWeather/forecast/weatherapi'
+        f'?key={WEATHER_API_KEY}'
+        f'&location={urllib.request.quote(location)}'
+        f'&unitGroup=metric'
+        f'&contentType=json'
+        f'&forecastDays=7'
+    )
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'LizFarmHelper/1.0'})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+        days = []
+        for d in data.get('days', [])[:7]:
+            days.append({
+                'Date': d.get('datetime', ''),
+                'Temperature (C)': round(d.get('temp', 25)),
+                'Humidity (%)': round(d.get('humidity', 60)),
+                'Weather': d.get('conditions', '☁️ Cloudy'),
+                'Rainfall (mm)': round(d.get('precipprob', 0) * 5),
+                'Notes': '',
+            })
+        return days
+    except Exception:
+        return []
+
 # ============================================
 # PAGE CONFIGURATION
 # ============================================
@@ -1258,19 +1333,64 @@ elif page == "📋 Tasks":
 # PAGE: WEATHER
 # ============================================
 elif page == "🌤️ Weather":
-    st.markdown('<div class="section-header">🌤️ Weather Monitoring</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">🌤️ Weather & Farm Planning</div>', unsafe_allow_html=True)
     weather = st.session_state.weather_data
-    latest = weather.iloc[0]
+    forecast = db.load_table('weather_forecast_data')
+
+    # Live weather fetch from Visual Crossing API
+    live_weather = get_live_weather(location='Nairobi,Kenya')
+
+    # Auto-populate forecast from API if not yet cached
+    if WEATHER_API_KEY and WEATHER_API_KEY.strip() and forecast.empty:
+        api_forecast = get_7day_forecast(location='Nairobi,Kenya')
+        if api_forecast:
+            forecast = pd.DataFrame(api_forecast)
+            db.save_table('weather_forecast_data', forecast)
+
+    # Live weather prominently at top
+    st.markdown('#### Today\'s Weather')
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"""<div class="metric-card glow-orange" data-emoji="🌡️"><div style="font-size:2.5em;">🌡️</div><div class="big-number-orange">{latest['Temperature (C)']}°C</div><div class="sub-label">Temperature</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card glow-orange" data-emoji="🌡️"><div style="font-size:2.5em;">🌡️</div><div class="big-number-orange">{live_weather.get('temperature_c', '—')}°C</div><div class="sub-label">Temperature</div></div>""", unsafe_allow_html=True)
     with c2:
-        st.markdown(f"""<div class="metric-card glow-blue" data-emoji="💧"><div style="font-size:2.5em;">💧</div><div class="big-number-blue">{latest['Humidity (%)']}%</div><div class="sub-label">Humidity</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card glow-blue" data-emoji="💧"><div style="font-size:2.5em;">💧</div><div class="big-number-blue">{live_weather.get('humidity_pct', '—')}%</div><div class="sub-label">Humidity</div></div>""", unsafe_allow_html=True)
     with c3:
-        st.markdown(f"""<div class="metric-card glow-green" data-emoji="🌧️"><div style="font-size:2.5em;">🌧️</div><div class="big-number">{latest['Rainfall (mm)']}mm</div><div class="sub-label">Rainfall</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card glow-green" data-emoji="🌧️"><div style="font-size:2.5em;">🌧️</div><div class="big-number">{live_weather.get('rainfall_mm', '—')} mm</div><div class="sub-label">Rainfall (est.)</div></div>""", unsafe_allow_html=True)
     with c4:
-        weather_text = latest['Weather'].split(' ')[-1] if ' ' in str(latest['Weather']) else str(latest['Weather'])
-        st.markdown(f"""<div class="metric-card glow-gold" data-emoji="🌤️"><div style="font-size:2.5em;">🌤️</div><div class="big-number-gold" style="font-size: 1.5em;">{weather_text}</div><div class="sub-label">Conditions</div></div>""", unsafe_allow_html=True)
+        st.markdown(f"""<div class="metric-card glow-gold" data-emoji="🌤️"><div style="font-size:2.5em;">🌤️</div><div class="big-number-gold" style="font-size: 1.5em;">{live_weather.get('condition', '—')}</div><div class="sub-label">Conditions</div></div>""", unsafe_allow_html=True)
+    src = live_weather.get('source', 'placeholder')
+    src_label = 'Live' if src == 'live' else 'Placeholder (no API key)' if src == 'placeholder' else f'Error: {src}'
+    st.caption(f"Source: {src_label}")
+    if src == 'error':
+        st.warning(f"Could not fetch live weather: {live_weather.get('error', 'unknown')}")
+        st.markdown('<div class="info-box">💡 To enable live weather, add a Visual Crossing API key in `.streamlit/secrets.toml` as `weather_api_key = "YOUR_KEY"`. Free tier: 1000 calls/day.</div>', unsafe_allow_html=True)
+
+    # Farm planning tips based on live weather
+    st.markdown('#### Farm Planning Tips')
+    temp = live_weather.get('temperature_c', 25)
+    humidity = live_weather.get('humidity_pct', 60)
+    condition_str = live_weather.get('condition', '').lower()
+    rainfall = live_weather.get('rainfall_mm', 0)
+    tips = []
+    if 'rain' in condition_str or 'storm' in condition_str:
+        tips.append('🌧️ Rain expected — check drainage, postpone spraying & fertilizing')
+    if rainfall > 5:
+        tips.append('💧 High rainfall — avoid irrigation today, watch for waterlogging')
+    if temp > 30:
+        tips.append('🔥 Hot day — water crops early morning, provide shade for animals')
+    if temp < 20:
+        tips.append('❄️ Cool day — give animals extra bedding, delay harvesting')
+    if humidity > 75:
+        tips.append('💦 High humidity — watch for fungal diseases in crops, ventilate animal sheds')
+    if 'sunny' in condition_str:
+        tips.append('☀️ Sunny — good day for outdoor work, harvesting, and applying organic fertilizer')
+    if not tips:
+        tips.append('🌤️ Mild conditions — good day for general farm tasks')
+    for tip in tips:
+        st.caption(tip)
+
+    # Historical weather trends (local table)
+    latest = weather.iloc[0] if not weather.empty else None
     col1, col2 = st.columns(2)
     with col1:
         fig = go.Figure()
@@ -1282,6 +1402,19 @@ elif page == "🌤️ Weather":
         fig.add_trace(go.Bar(x=weather['Date'], y=weather['Rainfall (mm)'], marker_color='#2196F3', name='Rainfall'))
         fig.update_layout(title="Rainfall (7 days)", height=300, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
         st.plotly_chart(fig, width="stretch")
+
+    # 7-day forecast from API/local cache
+    st.markdown('#### 📅 7-Day Forecast')
+    if not forecast.empty:
+        st.dataframe(forecast.head(7), hide_index=True, height=250,
+                    column_config={
+                        'Date': st.column_config.DateColumn('Date', format='YYYY-MM-DD'),
+                        'Weather': st.column_config.TextColumn('Weather', width='large'),
+                    })
+    else:
+        st.info('Forecast data will appear here after live fetch or manual entry.')
+
+    # Manual weather entry editor
     edited = ordered_editor('weather_data', weather, width="stretch", num_rows="dynamic")
     if not safe_equals(edited, weather):
         save('weather_data', edited)

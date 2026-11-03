@@ -563,6 +563,25 @@ def init_db():
                  random.randint(22, 32), random.randint(45, 85),
                  random.choice(weather_types), random.randint(0, 20), ''))
 
+    # ── 19. weather_forecast ────────────────────────────────
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS weather_forecast (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        date            TEXT,
+        temperature_c   INTEGER,
+        humidity_pct    INTEGER,
+        weather         TEXT,
+        rainfall_mm     INTEGER,
+        notes           TEXT
+    )""")
+    if _table_empty('weather_forecast'):
+        forecast_types = ['☀️ Sunny', '⛅ Cloudy', '🌧️ Rainy', '🌤️ Partly Cloudy', '🌦️ Showers']
+        for i in range(7):
+            cursor.execute("INSERT INTO weather_forecast (date,temperature_c,humidity_pct,weather,rainfall_mm,notes) VALUES (?,?,?,?,?,?)",
+                ((datetime.now().date() + timedelta(days=i)).strftime('%Y-%m-%d'),
+                 random.randint(24, 31), random.randint(50, 80),
+                 random.choice(forecast_types), random.randint(0, 15), ''))
+
     conn.commit()
     conn.close()
 
@@ -639,6 +658,7 @@ _TABLE_MAP = {
     'feed_data':              ('feed_inventory',     'id'),
     'tasks_data':             ('tasks',              'id'),
     'weather_data':           ('weather',            'id'),
+    'weather_forecast_data':  ('weather_forecast',   'id'),
 }
 
 # Maps session_state key -> (db table, id column, column alias map)
@@ -761,6 +781,11 @@ _ALIAS_MAP = {
         'Category': 'category', 'Notes': 'notes',
     },
     'weather_data': {
+        'Date': 'date', 'Temperature (C)': 'temperature_c',
+        'Humidity (%)': 'humidity_pct', 'Weather': 'weather',
+        'Rainfall (mm)': 'rainfall_mm', 'Notes': 'notes',
+    },
+    'weather_forecast_data': {
         'Date': 'date', 'Temperature (C)': 'temperature_c',
         'Humidity (%)': 'humidity_pct', 'Weather': 'weather',
         'Rainfall (mm)': 'rainfall_mm', 'Notes': 'notes',
